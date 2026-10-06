@@ -1,0 +1,436 @@
+/* ==========================================================================
+   MedStack — Responsive / Media Queries
+   responsive.css
+   ========================================================================== */
+
+/* ==========================================================================
+   TABLET  — max-width: 1024px
+   ========================================================================== */
+@media (max-width: 1024px) {
+  /* POS: stack panels vertically */
+  .pos-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .cart-panel {
+    height: 500px;
+  }
+
+  /* KPI grid: 2 columns */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Layout grids */
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .modal-xl {
+    max-width: 90vw;
+  }
+
+  .cust-overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ==========================================================================
+   MOBILE  — max-width: 768px
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* ------------------------------------------------------------------
+     Sidebar: becomes a slide-over drawer
+  ------------------------------------------------------------------ */
+  .sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-width) !important; /* always full width on mobile */
+    transition:
+      transform var(--transition),
+      box-shadow var(--transition);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  :root:not([data-theme='light']) .sidebar.mobile-open {
+    box-shadow: 0 0 40px rgba(0, 255, 65, 0.2), 4px 0 40px rgba(0, 0, 0, 0.6);
+  }
+
+  [data-theme='light'] .sidebar.mobile-open {
+    box-shadow: 0 0 40px rgba(37, 99, 235, 0.2), 4px 0 30px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Backdrop shown when mobile sidebar is open */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 99; /* behind sidebar (z-index: 100) */
+    cursor: pointer;
+  }
+
+  .sidebar-backdrop.active {
+    display: block;
+  }
+
+  /* ------------------------------------------------------------------
+     Navbar: full width, no sidebar offset
+  ------------------------------------------------------------------ */
+  .navbar {
+    left: 0 !important;
+  }
+
+  /* ------------------------------------------------------------------
+     Main content: no left margin
+  ------------------------------------------------------------------ */
+  .main-content {
+    margin-left: 0 !important;
+    padding: 16px;
+  }
+
+  /* ------------------------------------------------------------------
+     App shell: single column
+  ------------------------------------------------------------------ */
+  .app-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ------------------------------------------------------------------
+     KPI grid: 2 columns
+  ------------------------------------------------------------------ */
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* ------------------------------------------------------------------
+     Page header: stack vertically
+  ------------------------------------------------------------------ */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* ------------------------------------------------------------------
+     Table: no side borders on small screens
+  ------------------------------------------------------------------ */
+  .table-container {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-left: -16px;
+    margin-right: -16px;
+  }
+
+  /* ------------------------------------------------------------------
+     Modal: bottom sheet on mobile
+  ------------------------------------------------------------------ */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal {
+    max-width: 100%;
+    width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 92vh;
+    transform: translateY(100%);
+  }
+
+  .modal-overlay.visible .modal {
+    transform: translateY(0);
+  }
+
+  /* ------------------------------------------------------------------
+     Form row: stack vertically
+  ------------------------------------------------------------------ */
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ------------------------------------------------------------------
+     Toolbar: stack vertically
+  ------------------------------------------------------------------ */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .search-box {
+    min-width: auto;
+    width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     Layout grids: single column
+  ------------------------------------------------------------------ */
+  .grid-2,
+  .grid-3,
+  .flex-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  /* ------------------------------------------------------------------
+     Toast: full width on mobile
+  ------------------------------------------------------------------ */
+  .toast-container {
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     Tabs: allow horizontal scroll
+  ------------------------------------------------------------------ */
+  .tabs {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ------------------------------------------------------------------
+     POS: single column, auto height
+  ------------------------------------------------------------------ */
+  .pos-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .cart-panel {
+    height: auto;
+    min-height: 400px;
+  }
+
+  /* ------------------------------------------------------------------
+     Dropdown: prevent overflow
+  ------------------------------------------------------------------ */
+  .dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 160px;
+  }
+
+  /* ------------------------------------------------------------------
+     Navbar items: compact
+  ------------------------------------------------------------------ */
+  .navbar {
+    padding: 0 12px;
+  }
+
+  /* ------------------------------------------------------------------
+     KPI value: slightly smaller
+  ------------------------------------------------------------------ */
+  .kpi-value {
+    font-size: 1.6rem;
+  }
+}
+
+/* ==========================================================================
+   SMALL MOBILE  — max-width: 480px
+   ========================================================================== */
+@media (max-width: 480px) {
+  /* Single column KPI */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tighter padding */
+  .main-content {
+    padding: 12px;
+  }
+
+  /* POS auto height */
+  .pos-layout {
+    height: auto;
+  }
+
+  /* Cart: compact */
+  .cart-panel {
+    min-height: 320px;
+  }
+
+  /* Card: tighter */
+  .card {
+    padding: 14px;
+  }
+
+  /* Buttons */
+  .btn {
+    font-size: 0.82rem;
+    padding: 7px 12px;
+  }
+
+  /* Page title */
+  .page-title {
+    font-size: 1rem;
+  }
+
+  /* Modal: full screen on very small devices */
+  .modal {
+    border-radius: 0;
+    max-height: 100dvh;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* Table font size */
+  .data-table td,
+  .data-table th {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Toast */
+  .toast {
+    font-size: 0.82rem;
+    padding: 10px 12px;
+  }
+
+  /* Pagination: smaller */
+  .page-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+}
+
+/* ==========================================================================
+   LARGE DESKTOP  — min-width: 1440px
+   ========================================================================== */
+@media (min-width: 1440px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .pos-layout {
+    grid-template-columns: 1fr 420px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+/* ==========================================================================
+   PRINT STYLES
+   ========================================================================== */
+@media print {
+  /* Hide UI chrome */
+  .sidebar,
+  .navbar,
+  .toolbar,
+  .pagination,
+  .btn,
+  .toast-container {
+    display: none !important;
+  }
+
+  /* When an invoice modal is open, print ONLY the invoice container */
+  body:has(.invoice-container) .main-content > *:not(.modal-overlay),
+  body:has(.invoice-container) .modal-header,
+  body:has(.invoice-container) .modal-footer,
+  body:has(.invoice-container) #btnPrintInvoiceModal,
+  body:has(.invoice-container) #btnPosPrintInvoice {
+    display: none !important;
+  }
+
+  body:has(.invoice-container) .modal-overlay {
+    display: block !important;
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  body:has(.invoice-container) .modal-content {
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  body:has(.invoice-container) .invoice-container {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  /* Fallback when no invoice modal is open */
+  body:not(:has(.invoice-container)) .modal-overlay {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  .card,
+  .table-container {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+
+  .data-table th,
+  .data-table td {
+    color: #000000 !important;
+  }
+
+  .kpi-value,
+  .page-title,
+  .grand-total {
+    color: #000000 !important;
+    text-shadow: none !important;
+  }
+
+  .badge {
+    border: 1px solid #ccc !important;
+    color: #000000 !important;
+    background: transparent !important;
+  }
+
+  /* Always show receipt nicely */
+  .receipt {
+    border: 1px solid #ccc;
+    max-width: 100%;
+  }
+
+  /* Page breaks */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after: always; }
+  .no-break          { page-break-inside: avoid; }
+}

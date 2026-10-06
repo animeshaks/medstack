@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+medstack:
+  jwt:
+    secret: test-secret-minimum-64-chars-for-hmac-sha512-test-only-value-here
+    expiration-ms: 86400000
+
+logging:
+  level:
+    com.pharma.medstack: WARN

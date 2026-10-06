@@ -1,0 +1,532 @@
+/* ==========================================================================
+   MedStack — App Shell & Layout
+   layout.css
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   App Shell — CSS Grid wrapper
+   -------------------------------------------------------------------------- */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--navbar-height) 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns var(--transition);
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar
+   -------------------------------------------------------------------------- */
+.sidebar {
+  grid-row: 1 / -1;
+  width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow: hidden;
+  transition: width var(--transition);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* Dark-mode sidebar glow edge */
+:root:not([data-theme='light']) .sidebar {
+  box-shadow: 1px 0 0 var(--border), 4px 0 20px rgba(16, 185, 129, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar — Logo / Brand
+   -------------------------------------------------------------------------- */
+.sidebar .logo {
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  min-height: var(--navbar-height);
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.sidebar .logo-icon {
+  font-size: 1.4rem;
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+:root:not([data-theme='light']) .sidebar .logo-icon {
+  
+}
+
+.sidebar .logo-text {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity var(--transition), width var(--transition);
+  white-space: nowrap;
+}
+
+:root:not([data-theme='light']) .sidebar .logo-text {
+  
+}
+
+.sidebar.collapsed .logo-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar — Navigation
+   -------------------------------------------------------------------------- */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+}
+
+.sidebar-nav .nav-section-label {
+  padding: 16px 16px 4px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--transition);
+}
+
+.sidebar.collapsed .nav-section-label {
+  opacity: 0;
+  height: 0;
+  padding: 0;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all var(--transition);
+  border-left: 3px solid transparent;
+  font-size: 0.875rem;
+  position: relative;
+}
+
+.sidebar-nav a:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+:root:not([data-theme='light']) .sidebar-nav a:hover {
+  
+}
+
+.sidebar-nav a.active {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+:root:not([data-theme='light']) .sidebar-nav a.active {
+  
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* Active indicator glow dot */
+:root:not([data-theme='light']) .sidebar-nav a.active::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  opacity: 0.8;
+}
+
+.sidebar.collapsed .sidebar-nav a.active::after {
+  display: none;
+}
+
+.sidebar-nav .nav-icon {
+  font-size: 1.1rem;
+  min-width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar-nav .nav-label {
+  transition: opacity var(--transition), width var(--transition);
+  overflow: hidden;
+}
+
+.sidebar.collapsed .nav-label {
+  opacity: 0;
+  width: 0;
+}
+
+/* Tooltip on collapsed sidebar */
+.sidebar.collapsed .sidebar-nav a {
+  position: relative;
+}
+
+.sidebar.collapsed .sidebar-nav a::before {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(var(--sidebar-collapsed-width) + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-card);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-bright);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 200;
+}
+
+:root:not([data-theme='light']) .sidebar.collapsed .sidebar-nav a::before {
+  box-shadow: var(--shadow-glow);
+}
+
+.sidebar.collapsed .sidebar-nav a:hover::before {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar — Toggle Button Area
+   -------------------------------------------------------------------------- */
+.sidebar-toggle {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Top Navbar
+   -------------------------------------------------------------------------- */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--navbar-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 50;
+  transition: left var(--transition);
+}
+
+:root:not([data-theme='light']) .navbar {
+  box-shadow: 0 1px 0 var(--border), 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Navbar breadcrumb / title */
+.navbar-title {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* Theme indicator */
+.theme-indicator {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+:root:not([data-theme='light']) .theme-indicator {
+  color: var(--accent);
+  border-color: var(--border-bright);
+}
+
+/* Navbar adjusted when sidebar collapsed (via JS class on body) */
+body.sidebar-collapsed .navbar {
+  left: var(--sidebar-collapsed-width);
+}
+
+/* --------------------------------------------------------------------------
+   Main Content Area
+   -------------------------------------------------------------------------- */
+.main-content {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--navbar-height);
+  padding: 24px;
+  min-height: calc(100vh - var(--navbar-height));
+  transition: margin-left var(--transition);
+  overflow-x: hidden;
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: var(--sidebar-collapsed-width);
+}
+
+/* --------------------------------------------------------------------------
+   Page Header
+   -------------------------------------------------------------------------- */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+:root:not([data-theme='light']) .page-title {
+  
+}
+
+.page-title::before {
+  content: '> ';
+  opacity: 0.6;
+}
+
+.page-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Card
+   -------------------------------------------------------------------------- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+:root:not([data-theme='light']) .card {
+  box-shadow: var(--shadow-glow);
+}
+
+[data-theme='light'] .card {
+  box-shadow: var(--shadow);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+:root:not([data-theme='light']) .card-title {
+  color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   KPI / Stats Grid
+   -------------------------------------------------------------------------- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  cursor: default;
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.kpi-card:hover {
+  border-color: var(--accent);
+}
+
+:root:not([data-theme='light']) .kpi-card:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+[data-theme='light'] .kpi-card:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+.kpi-card:hover::before {
+  opacity: 1;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  font-family: var(--font-mono);
+}
+
+:root:not([data-theme='light']) .kpi-value {
+  
+}
+
+.kpi-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+.kpi-delta {
+  font-size: 0.78rem;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-delta.up {
+  color: var(--success);
+}
+
+.kpi-delta.down {
+  color: var(--danger);
+}
+
+.kpi-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2.5rem;
+  opacity: 0.07;
+}
+
+/* --------------------------------------------------------------------------
+   Divider
+   -------------------------------------------------------------------------- */
+.section-divider {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   Grid / Flex utilities for layout
+   -------------------------------------------------------------------------- */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.flex-row { display: flex; gap: 16px; align-items: flex-start; }
+.flex-col { display: flex; flex-direction: column; gap: 16px; }
+.flex-1 { flex: 1; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.gap-24 { gap: 24px; }
+.mt-8   { margin-top: 8px; }
+.mt-16  { margin-top: 16px; }
+.mt-24  { margin-top: 24px; }
+.mb-8   { margin-bottom: 8px; }
+.mb-16  { margin-bottom: 16px; }
+.mb-24  { margin-bottom: 24px; }
+.text-right  { text-align: right; }
+.text-center { text-align: center; }

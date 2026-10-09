@@ -15,12 +15,12 @@
   padding: 8px 16px;
   border-radius: var(--radius);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition);
   border: 1px solid transparent;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   text-decoration: none;
   line-height: 1;
   user-select: none;
@@ -38,14 +38,15 @@
 /* Primary */
 .btn-primary {
   background: var(--accent);
-  color: #000000;
+  color: var(--btn-primary-text, #ffffff);
   border-color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .btn-primary:hover {
   background: var(--accent-dim);
   border-color: var(--accent-dim);
+  color: var(--btn-primary-text, #ffffff);
 }
 
 :root:not([data-theme='light']) .btn-primary:hover {
@@ -55,6 +56,27 @@
 :root:not([data-theme='light']) .btn-primary:focus-visible {
   box-shadow: var(--accent-glow);
   outline: none;
+}
+
+/* Light theme: Always use white text on blue highlighted buttons */
+[data-theme='light'] .btn-primary,
+[data-theme='light'] .btn.btn-primary,
+[data-theme='light'] button.btn-primary,
+[data-theme='light'] a.btn-primary {
+  color: #ffffff !important;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+[data-theme='light'] .btn-primary:hover,
+[data-theme='light'] .btn-primary:focus,
+[data-theme='light'] .btn-primary:active,
+[data-theme='light'] .btn.btn-primary:hover,
+[data-theme='light'] .btn.btn-primary:focus,
+[data-theme='light'] .btn.btn-primary:active {
+  color: #ffffff !important;
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
 }
 
 /* Secondary / Ghost */
@@ -116,6 +138,38 @@
 
 :root:not([data-theme='light']) .btn-success:hover {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+[data-theme='light'] .btn-success {
+  color: #ffffff !important;
+}
+
+/* Info */
+.btn-info {
+  background: var(--info);
+  color: #ffffff;
+  border-color: var(--info);
+}
+
+.btn-info:hover {
+  filter: brightness(1.1);
+  color: #ffffff;
+}
+
+/* Light Theme: Any button highlighted with blue accent MUST have white text */
+[data-theme='light'] .btn-primary,
+[data-theme='light'] .btn.btn-primary,
+[data-theme='light'] button.btn-primary,
+[data-theme='light'] a.btn-primary,
+[data-theme='light'] .tab-btn.btn-primary,
+[data-theme='light'] .preset-btn.btn-primary,
+[data-theme='light'] .rpt-type-btn.btn-primary,
+[data-theme='light'] .pay-type-tab.btn-primary,
+[data-theme='light'] .pay-tab.btn-primary,
+[data-theme='light'] .settle-mode-btn.btn-primary,
+[data-theme='light'] .bill-mode-btn.btn-primary,
+[data-theme='light'] .btn-info {
+  color: #ffffff !important;
 }
 
 /* Sizes */
@@ -221,7 +275,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.875rem;
   transition: border-color var(--transition), box-shadow var(--transition);
   appearance: none;
@@ -868,8 +922,9 @@ textarea.form-control {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
+  font-weight: 500;
   transition: all var(--transition);
 }
 
@@ -884,9 +939,15 @@ textarea.form-control {
 
 .page-btn.active {
   background: var(--accent);
-  color: #000000;
+  color: var(--btn-primary-text, #ffffff);
   border-color: var(--accent);
   font-weight: 700;
+}
+
+[data-theme='light'] .page-btn.active {
+  color: #ffffff !important;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 :root:not([data-theme='light']) .page-btn.active {
@@ -1433,10 +1494,10 @@ textarea.form-control {
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;

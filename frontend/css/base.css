@@ -3,8 +3,8 @@
    base.css
    ========================================================================== */
 
-/* Google Fonts — Inter for light mode sans-serif fallback */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Google Fonts — Inter, Plus Jakarta Sans, and JetBrains Mono */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* --------------------------------------------------------------------------
    Box-sizing reset
@@ -31,9 +31,9 @@ html {
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 16px;
-  line-height: 1.6;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
   min-height: 100vh;
   /* Smooth theme transitions */
   transition:
@@ -47,9 +47,11 @@ body {
    Typography reset
    -------------------------------------------------------------------------- */
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display, var(--font-sans));
   font-weight: 700;
   line-height: 1.25;
   color: var(--text-primary);
+  letter-spacing: -0.015em;
 }
 
 p {
@@ -156,12 +158,27 @@ hr {
    -------------------------------------------------------------------------- */
 ::selection {
   background: var(--accent);
-  color: #000000;
+  color: var(--btn-primary-text, #000000);
 }
 
 ::-moz-selection {
   background: var(--accent);
-  color: #000000;
+  color: var(--btn-primary-text, #000000);
+}
+
+[data-theme='light'] ::selection {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+[data-theme='light'] ::-moz-selection {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Clean tabular numbers for data grids and pricing */
+.data-table, .kpi-value, .receipt, [data-numeric] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* --------------------------------------------------------------------------

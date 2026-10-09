@@ -153,7 +153,7 @@ export default async function renderCustomerDetail(container, params = {}) {
         <!-- Left: Customer Profile Information -->
         <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:16px">
           <div style="display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);padding-bottom:14px">
-            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg, var(--accent), var(--accent-dim));display:flex;align-items:center;justify-content:center;color:#000;font-size:1.4rem;font-weight:700">
+            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg, var(--accent), var(--accent-dim));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.4rem;font-weight:700">
               ${customer.name.charAt(0).toUpperCase()}
             </div>
             <div>

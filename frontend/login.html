@@ -245,6 +245,15 @@
       </button>
     </form>
 
+    <div style="margin-top:16px;padding:12px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px dashed var(--border);font-size:0.75rem">
+      <div style="color:var(--text-muted);margin-bottom:6px;font-weight:600">Quick Demo Credentials:</div>
+      <div style="display:flex;gap:6px">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('username').value='admin';document.getElementById('password').value='Admin@123'" style="padding:4px 8px;font-size:0.75rem;cursor:pointer">Admin</button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('username').value='owner';document.getElementById('password').value='Owner@123'" style="padding:4px 8px;font-size:0.75rem;cursor:pointer">Owner</button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('username').value='staff';document.getElementById('password').value='Staff@123'" style="padding:4px 8px;font-size:0.75rem;cursor:pointer">Staff</button>
+      </div>
+    </div>
+
     <div class="login-footer">MedStack v1.0 &mdash; Secure Pharmacy Management</div>
   </div>
 

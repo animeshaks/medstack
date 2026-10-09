@@ -323,16 +323,6 @@ public class BillService {
     }
 
     @Transactional(readOnly = true)
-    public Page<BillResponse> getAllBills(String search, Pageable pageable) {
-        return getAllBills(search, null, null, null, null, null, null, pageable);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<BillResponse> getAllBills(String search, UUID customerId, UUID userId, Instant startDate, Instant endDate, Pageable pageable) {
-        return getAllBills(search, customerId, userId, startDate, endDate, null, null, pageable);
-    }
-
-    @Transactional(readOnly = true)
     public Page<BillResponse> getAllBills(String search, UUID customerId, UUID userId, Instant startDate, Instant endDate, PaymentStatus paymentStatus, Boolean dueOnly, Pageable pageable) {
         Specification<SalesOrder> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

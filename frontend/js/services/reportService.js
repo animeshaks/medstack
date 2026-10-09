@@ -5,5 +5,4 @@ export const reportService = {
   getDashboardKpis: () => api.get('/reports/dashboard'),
   getSalesReport: (from, to) => api.get(`/reports/sales?from=${from}&to=${to}`),
   getInventoryReport: () => api.get('/reports/inventory'),
-  getExpiryReport: () => api.get('/reports/expiry'),
 };

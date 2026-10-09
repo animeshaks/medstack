@@ -176,7 +176,7 @@ export default function renderInventory(container) {
   const loadNearExpiry = async () => {
     showLoading(tableContainer, 'Checking batches expiring soon...');
     try {
-      const resp = await inventoryService.getExpiringSoon(90);
+      const resp = await inventoryService.getNearExpiry(90);
       const items = Array.isArray(resp?.data) ? resp.data : (resp?.data?.content ?? []);
 
       const columns = [

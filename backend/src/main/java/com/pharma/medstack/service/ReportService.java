@@ -75,38 +75,12 @@ public class ReportService {
         var expiredBatches = inventoryBatchRepository.findExpired(today);
 
         List<InventoryBatchResponse> lowStockItems = lowStockBatches.stream()
-            .map(b -> new InventoryBatchResponse(
-                b.getId(),
-                b.getMedicine().getId(),
-                b.getMedicine().getName(),
-                b.getMedicine().getGenericName(),
-                b.getBatchNumber(),
-                b.getExpiryDate(),
-                b.getMrp(),
-                b.getCostPrice(),
-                b.getSellingPrice(),
-                b.getQuantity(),
-                b.isRetired(),
-                b.getMedicine().getMinStockAlertLevel(),
-                true
-            )).toList();
+            .map(InventoryService::mapToResponse)
+            .toList();
 
         List<InventoryBatchResponse> nearExpiryItems = nearExpiryBatches.stream()
-            .map(b -> new InventoryBatchResponse(
-                b.getId(),
-                b.getMedicine().getId(),
-                b.getMedicine().getName(),
-                b.getMedicine().getGenericName(),
-                b.getBatchNumber(),
-                b.getExpiryDate(),
-                b.getMrp(),
-                b.getCostPrice(),
-                b.getSellingPrice(),
-                b.getQuantity(),
-                b.isRetired(),
-                b.getMedicine().getMinStockAlertLevel(),
-                b.getQuantity() <= b.getMedicine().getMinStockAlertLevel()
-            )).toList();
+            .map(InventoryService::mapToResponse)
+            .toList();
 
         // totalActiveBatches can be approximated by count of non-retired, non-deleted, unexpired batches
         long totalActive = inventoryBatchRepository.count(); // For a simple impl

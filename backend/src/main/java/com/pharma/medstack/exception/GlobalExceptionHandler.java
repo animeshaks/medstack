@@ -47,34 +47,10 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("INSUFFICIENT_STOCK", null));
     }
 
-    @ExceptionHandler(ExpiredBatchException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleExpiredBatchException(ExpiredBatchException ex) {
-        return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("EXPIRED_BATCH", null));
-    }
-
-    @ExceptionHandler(RetiredBatchException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleRetiredBatchException(RetiredBatchException ex) {
-        return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("RETIRED_BATCH", null));
-    }
-
     @ExceptionHandler(InvalidBillException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleInvalidBillException(InvalidBillException ex) {
         return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("INVALID_BILL", null));
-    }
-
-    @ExceptionHandler(UnauthorizedOperationException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ApiResponse<Void> handleUnauthorizedOperationException(UnauthorizedOperationException ex) {
-        return ApiResponse.error(ex.getMessage(), HttpStatus.FORBIDDEN.value(), new ErrorDetail("FORBIDDEN", null));
-    }
-
-    @ExceptionHandler(InvalidPaymentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleInvalidPaymentException(InvalidPaymentException ex) {
-        return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("INVALID_PAYMENT", null));
     }
 
     @ExceptionHandler(BusinessValidationException.class)

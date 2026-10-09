@@ -10,5 +10,4 @@ export const userService = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
-  changePassword: (id, data) => api.put(`/users/${id}/password`, data),
 };

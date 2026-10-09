@@ -1,6 +1,11 @@
 // js/api.js
-// Base API URL — relative so Nginx proxy works
-const API_BASE = '/api/v1';
+// Base API URL — relative when behind Nginx (e.g. port 3000/80), or fallback to direct backend on port 8080
+const isProxied = window.location.port === '3000' || window.location.port === '80' || window.location.port === '8088';
+const API_BASE = isProxied 
+  ? '/api/v1' 
+  : (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8080')
+      ? 'http://localhost:8080/api/v1' 
+      : '/api/v1');
 
 async function request(method, path, body = null, options = {}) {
   try {
@@ -20,7 +25,7 @@ async function request(method, path, body = null, options = {}) {
 
     const response = await fetch(`${API_BASE}${path}`, config);
 
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403) {
       const { logout } = await import('./auth.js');
       logout();
       return null;
@@ -65,7 +70,7 @@ export const api = {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const resp = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
-      if (resp.status === 401) {
+      if (resp.status === 401 || resp.status === 403) {
         const { logout } = await import('./auth.js');
         logout();
         return null;

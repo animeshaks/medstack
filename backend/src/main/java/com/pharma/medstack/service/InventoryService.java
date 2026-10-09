@@ -29,20 +29,20 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public Page<InventoryBatchResponse> getInventory(Pageable pageable) {
         return inventoryBatchRepository.findActiveInventory(LocalDate.now(), pageable)
-                .map(this::mapToResponse);
+                .map(InventoryService::mapToResponse);
     }
 
     @Transactional(readOnly = true)
     public Page<InventoryBatchResponse> searchInventory(String query, Pageable pageable) {
         return inventoryBatchRepository.searchInventory(query, pageable)
-                .map(this::mapToResponse);
+                .map(InventoryService::mapToResponse);
     }
 
     @Transactional(readOnly = true)
     public List<InventoryBatchResponse> getBatchesByMedicine(UUID medicineId) {
         return inventoryBatchRepository.findActiveBatchesByMedicine(medicineId, LocalDate.now())
                 .stream()
-                .map(this::mapToResponse)
+                .map(InventoryService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
@@ -51,21 +51,21 @@ public class InventoryService {
         LocalDate today = LocalDate.now();
         LocalDate cutoff = today.plusDays(days);
         return inventoryBatchRepository.findNearExpiry(today, cutoff).stream()
-                .map(this::mapToResponse)
+                .map(InventoryService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<InventoryBatchResponse> getExpired() {
         return inventoryBatchRepository.findExpired(LocalDate.now()).stream()
-                .map(this::mapToResponse)
+                .map(InventoryService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<InventoryBatchResponse> getLowStock() {
         return inventoryBatchRepository.findLowStock(LocalDate.now()).stream()
-                .map(this::mapToResponse)
+                .map(InventoryService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
@@ -80,7 +80,7 @@ public class InventoryService {
         }
     }
 
-    private InventoryBatchResponse mapToResponse(InventoryBatch batch) {
+    public static InventoryBatchResponse mapToResponse(InventoryBatch batch) {
         int unitsPerPack = batch.getMedicine().getUnitsPerPack() > 0 ? batch.getMedicine().getUnitsPerPack() : 1;
         int looseQty = batch.getLooseQuantity();
         int totalUnits = (batch.getQuantity() * unitsPerPack) + looseQty;

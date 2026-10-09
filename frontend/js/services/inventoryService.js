@@ -8,10 +8,8 @@ export const inventoryService = {
     }
     return api.get(`/inventory?page=${page}&size=${size}`);
   },
-  getExpiringSoon: (days = 90) => api.get(`/inventory/expiry/near?days=${days}`),
   getNearExpiry: (days = 90) => api.get(`/inventory/expiry/near?days=${days}`),
   getExpired: () => api.get('/inventory/expiry/expired'),
   getLowStock: () => api.get('/inventory/low-stock'),
-  retireBatch: (id) => api.post('/inventory/expiry/retire', { batchIds: [id] }),
-  retireBatches: (ids) => api.post('/inventory/expiry/retire', { batchIds: ids }),
+  retireBatch: (id) => api.post('/inventory/expiry/retire', { batchIds: Array.isArray(id) ? id : [id] }),
 };

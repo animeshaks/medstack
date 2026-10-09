@@ -52,6 +52,19 @@ public class PurchaseOrder extends AuditableEntity {
     @Column(name = "tax_amount", precision = 14, scale = 2)
     private BigDecimal taxAmount;
 
+    @Column(name = "paid_amount", precision = 14, scale = 2, nullable = false)
+    @Builder.Default
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    @Column(name = "due_amount", precision = 14, scale = 2, nullable = false)
+    @Builder.Default
+    private BigDecimal dueAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20, nullable = false)
+    @Builder.Default
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PurchaseOrderStatus status;

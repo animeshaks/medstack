@@ -2,7 +2,9 @@ package com.pharma.medstack.controller;
 
 import com.pharma.medstack.model.request.SupplierRequest;
 import com.pharma.medstack.model.response.ApiResponse;
+import com.pharma.medstack.model.response.SupplierKhataSummaryResponse;
 import com.pharma.medstack.model.response.SupplierResponse;
+import com.pharma.medstack.service.PurchaseService;
 import com.pharma.medstack.service.SupplierService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,9 +22,11 @@ import java.util.UUID;
 public class SupplierController {
 
     private final SupplierService supplierService;
+    private final PurchaseService purchaseService;
 
-    public SupplierController(SupplierService supplierService) {
+    public SupplierController(SupplierService supplierService, PurchaseService purchaseService) {
         this.supplierService = supplierService;
+        this.purchaseService = purchaseService;
     }
 
     @GetMapping
@@ -48,6 +52,13 @@ public class SupplierController {
     public ApiResponse<SupplierResponse> getSupplier(@PathVariable UUID id) {
         SupplierResponse response = supplierService.getSupplier(id);
         return ApiResponse.success(response, "Supplier retrieved successfully", 200);
+    }
+
+    @GetMapping("/{id}/khata")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER','STAFF')")
+    public ApiResponse<SupplierKhataSummaryResponse> getSupplierKhata(@PathVariable UUID id) {
+        SupplierKhataSummaryResponse response = purchaseService.getSupplierKhataSummary(id);
+        return ApiResponse.success(response, "Supplier khata summary retrieved successfully", 200);
     }
 
     @PutMapping("/{id}")

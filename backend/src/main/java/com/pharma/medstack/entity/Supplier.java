@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -39,4 +40,7 @@ public class Supplier extends AuditableEntity {
     private String dlNumber;
 
     private String address;
+
+    @Column(name = "outstanding_balance", precision = 14, scale = 2, nullable = false)
+    private BigDecimal outstandingBalance = BigDecimal.ZERO;
 }

@@ -87,6 +87,7 @@ public class SupplierService {
                 supplier.getGstin(),
                 supplier.getDlNumber(),
                 supplier.getAddress(),
+                supplier.getOutstandingBalance() != null ? supplier.getOutstandingBalance() : java.math.BigDecimal.ZERO,
                 supplier.getCreatedAt(),
                 supplier.getUpdatedAt()
         );

@@ -7,6 +7,7 @@ export const supplierService = {
     return api.get(`/suppliers?page=${page}&size=${size}${q}`);
   },
   getById: (id) => api.get(`/suppliers/${id}`),
+  getKhata: (id) => api.get(`/suppliers/${id}/khata`),
   create: (data) => api.post('/suppliers', data),
   update: (id, data) => api.put(`/suppliers/${id}`, data),
   delete: (id) => api.delete(`/suppliers/${id}`),

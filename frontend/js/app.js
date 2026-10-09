@@ -21,6 +21,7 @@ import renderReports from './pages/reports.js';
 import renderUsers from './pages/users.js';
 import renderSettings from './pages/settings.js';
 import renderCustomerDetail from './pages/customerDetail.js';
+import renderSupplierDetail from './pages/supplierDetail.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 if (!isAuthenticated()) {
@@ -124,7 +125,9 @@ function loadPage(renderFn, title) {
   const currentPath = '/' + rawPath.split('?')[0].replace(/^\//, '');
   document.querySelectorAll('.sidebar-nav a').forEach(a => {
     const route = a.getAttribute('data-route');
-    const isActive = route === currentPath || (currentPath === '/customer-detail' && route === '/customers');
+    const isActive = route === currentPath ||
+      (currentPath === '/customer-detail' && route === '/customers') ||
+      (currentPath === '/supplier-detail' && route === '/suppliers');
     a.classList.toggle('active', isActive);
   });
 
@@ -173,6 +176,7 @@ registerRoute('/customers',        () => loadPage(renderCustomers,        'Custo
 registerRoute('/customer-detail',  (params) => loadPage((container) => renderCustomerDetail(container, params), 'Customer Profile & Purchases'));
 registerRoute('/doctors',          () => loadPage(renderDoctors,          'Doctors'));
 registerRoute('/suppliers',        () => loadPage(renderSuppliers,        'Suppliers'));
+registerRoute('/supplier-detail',  (params) => loadPage((container) => renderSupplierDetail(container, params), 'Supplier Ledger & Orders'));
 registerRoute('/purchases',        () => loadPage(renderPurchases,        'Purchases'));
 registerRoute('/bills',            () => loadPage(renderBills,            'Bills'));
 registerRoute('/dues',             () => loadPage(renderDues,             'Customer Dues & Ledger'));

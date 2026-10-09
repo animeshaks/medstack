@@ -1,8 +1,14 @@
 package com.pharma.medstack.controller;
 
+import com.pharma.medstack.entity.PaymentStatus;
+import com.pharma.medstack.model.request.PayPurchaseOrderRequest;
 import com.pharma.medstack.model.request.PurchaseOrderRequest;
+import com.pharma.medstack.model.request.ReceivePurchaseOrderRequest;
+import com.pharma.medstack.model.request.SettleSupplierDuesRequest;
 import com.pharma.medstack.model.response.ApiResponse;
+import com.pharma.medstack.model.response.PurchaseOrderItemResponse;
 import com.pharma.medstack.model.response.PurchaseOrderResponse;
+import com.pharma.medstack.model.response.PurchasePaymentResponse;
 import com.pharma.medstack.service.PurchaseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,8 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,8 +31,13 @@ public class PurchaseController {
     private final PurchaseService purchaseService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<PurchaseOrderResponse>>> getAllPurchaseOrders(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success(purchaseService.getAllPurchaseOrders(pageable), "Purchase orders fetched successfully", 200));
+    public ResponseEntity<ApiResponse<Page<PurchaseOrderResponse>>> getAllPurchaseOrders(
+            @RequestParam(required = false) UUID supplierId,
+            @RequestParam(required = false) PaymentStatus paymentStatus,
+            Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.getAllPurchaseOrders(supplierId, paymentStatus, pageable),
+                "Purchase orders fetched successfully", 200));
     }
 
     @PostMapping
@@ -38,18 +51,69 @@ public class PurchaseController {
     }
 
     @GetMapping("/{id}/items")
-    public ResponseEntity<ApiResponse<java.util.List<com.pharma.medstack.model.response.PurchaseOrderItemResponse>>> getPurchaseOrderItems(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<PurchaseOrderItemResponse>>> getPurchaseOrderItems(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(purchaseService.getPurchaseOrder(id).items(), "Purchase order items fetched successfully", 200));
     }
 
     @PostMapping("/{id}/receive")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> receivePurchaseOrder(
             @PathVariable UUID id,
-            @RequestBody(required = false) com.pharma.medstack.model.request.ReceivePurchaseOrderRequest request) {
+            @RequestBody(required = false) ReceivePurchaseOrderRequest request) {
         return ResponseEntity.ok(ApiResponse.success(
                 purchaseService.receivePurchaseOrder(id, request),
                 "Purchase order received successfully",
                 200
         ));
+    }
+
+    @GetMapping("/supplier/{supplierId}")
+    public ResponseEntity<ApiResponse<Page<PurchaseOrderResponse>>> getPurchaseOrdersBySupplier(
+            @PathVariable UUID supplierId,
+            @RequestParam(required = false) PaymentStatus paymentStatus,
+            Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.getAllPurchaseOrders(supplierId, paymentStatus, pageable),
+                "Supplier purchase orders fetched successfully", 200));
+    }
+
+    @GetMapping("/supplier/{supplierId}/all")
+    public ResponseEntity<ApiResponse<List<PurchaseOrderResponse>>> getAllPurchaseOrdersForSupplier(@PathVariable UUID supplierId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.getSupplierPurchaseOrders(supplierId),
+                "All supplier purchase orders fetched successfully", 200));
+    }
+
+    @GetMapping("/supplier/{supplierId}/payments")
+    public ResponseEntity<ApiResponse<List<PurchasePaymentResponse>>> getSupplierPayments(@PathVariable UUID supplierId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.getSupplierPayments(supplierId),
+                "Supplier payment history fetched successfully", 200));
+    }
+
+    @PostMapping("/{id}/pay")
+    public ResponseEntity<ApiResponse<PurchaseOrderResponse>> payPurchaseOrder(
+            @PathVariable UUID id,
+            @Valid @RequestBody PayPurchaseOrderRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.payPurchaseOrder(id, request, username),
+                "Purchase order payment recorded successfully", 200));
+    }
+
+    @GetMapping("/{id}/payments")
+    public ResponseEntity<ApiResponse<List<PurchasePaymentResponse>>> getOrderPayments(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.getOrderPayments(id),
+                "Purchase order payments fetched successfully", 200));
+    }
+
+    @PostMapping("/supplier/{supplierId}/settle")
+    public ResponseEntity<ApiResponse<List<PurchaseOrderResponse>>> settleSupplierDues(
+            @PathVariable UUID supplierId,
+            @Valid @RequestBody SettleSupplierDuesRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(ApiResponse.success(
+                purchaseService.settleSupplierDues(supplierId, request, username),
+                "Supplier dues settled successfully", 200));
     }
 }

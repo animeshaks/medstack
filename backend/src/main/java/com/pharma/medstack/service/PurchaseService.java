@@ -3,22 +3,21 @@ package com.pharma.medstack.service;
 import com.pharma.medstack.entity.*;
 import com.pharma.medstack.exception.BusinessValidationException;
 import com.pharma.medstack.exception.ResourceNotFoundException;
-import com.pharma.medstack.model.request.PurchaseOrderItemRequest;
-import com.pharma.medstack.model.request.PurchaseOrderRequest;
-import com.pharma.medstack.model.request.ReceivePurchaseOrderRequest;
-import com.pharma.medstack.model.request.ReceiveItemRequest;
-import com.pharma.medstack.model.response.PurchaseOrderItemResponse;
-import com.pharma.medstack.model.response.PurchaseOrderResponse;
+import com.pharma.medstack.model.request.*;
+import com.pharma.medstack.model.response.*;
 import com.pharma.medstack.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,6 +29,7 @@ public class PurchaseService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
+    private final PurchasePaymentRepository purchasePaymentRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final SupplierRepository supplierRepository;
     private final MedicineRepository medicineRepository;
@@ -49,6 +49,9 @@ public class PurchaseService {
                 .discountAmount(BigDecimal.ZERO)
                 .totalAmount(BigDecimal.ZERO)
                 .taxAmount(BigDecimal.ZERO)
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(BigDecimal.ZERO)
+                .paymentStatus(PaymentStatus.UNPAID)
                 .build();
         po = purchaseOrderRepository.save(po);
 
@@ -127,29 +130,73 @@ public class PurchaseService {
         po.setDiscountAmount(poDiscountAmount.setScale(2, RoundingMode.HALF_UP));
         po.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
         po.setTotalAmount(grandTotal.setScale(2, RoundingMode.HALF_UP));
+        po.setPaidAmount(BigDecimal.ZERO);
+        po.setDueAmount(grandTotal.setScale(2, RoundingMode.HALF_UP));
+        po.setPaymentStatus(PaymentStatus.UNPAID);
         po = purchaseOrderRepository.save(po);
 
         log.info("PURCHASE_CREATED id={} invoice={} subtotal={} poDiscount={} tax={} grandTotal={}",
                 po.getId(), po.getInvoiceNumber(), po.getSubtotal(), po.getDiscountAmount(), po.getTaxAmount(), po.getTotalAmount());
 
-        return mapToResponse(po, savedItems);
+        return mapToResponse(po, savedItems, Collections.emptyList());
     }
 
     @Transactional(readOnly = true)
     public Page<PurchaseOrderResponse> getAllPurchaseOrders(Pageable pageable) {
-        org.springframework.data.domain.Pageable sortedPageable = pageable;
+        return getAllPurchaseOrders(null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PurchaseOrderResponse> getAllPurchaseOrders(UUID supplierId, PaymentStatus paymentStatus, Pageable pageable) {
+        Pageable sortedPageable = pageable;
         if (pageable.getSort().isUnsorted()) {
-            sortedPageable = org.springframework.data.domain.PageRequest.of(
+            sortedPageable = PageRequest.of(
                     pageable.getPageNumber(),
                     pageable.getPageSize(),
-                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+                    Sort.by(Sort.Direction.DESC, "createdAt")
             );
         }
-        return purchaseOrderRepository.findAllByIsDeletedFalse(sortedPageable)
+
+        Page<PurchaseOrder> page;
+        if (supplierId != null && paymentStatus != null) {
+            page = purchaseOrderRepository.findAllBySupplierIdAndPaymentStatusAndIsDeletedFalse(supplierId, paymentStatus, sortedPageable);
+        } else if (supplierId != null) {
+            page = purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId, sortedPageable);
+        } else {
+            page = purchaseOrderRepository.findAllByIsDeletedFalse(sortedPageable);
+        }
+
+        return page.map(po -> {
+            List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(po.getId());
+            return mapToResponse(po, items, null);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<PurchaseOrderResponse> getSupplierPurchaseOrders(UUID supplierId) {
+        return purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalseOrderByInvoiceDateDescCreatedAtDesc(supplierId)
+                .stream()
                 .map(po -> {
                     List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(po.getId());
-                    return mapToResponse(po, items);
-                });
+                    return mapToResponse(po, items, null);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PurchasePaymentResponse> getSupplierPayments(UUID supplierId) {
+        return purchasePaymentRepository.findAllBySupplierIdAndIsDeletedFalseOrderByPaymentTimeDesc(supplierId)
+                .stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PurchasePaymentResponse> getOrderPayments(UUID orderId) {
+        return purchasePaymentRepository.findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(orderId)
+                .stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -157,7 +204,7 @@ public class PurchaseService {
         PurchaseOrder po = purchaseOrderRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase Order not found"));
         List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(po.getId());
-        return mapToResponse(po, items);
+        return mapToResponse(po, items, null);
     }
 
     @Transactional
@@ -291,15 +338,240 @@ public class PurchaseService {
         } else {
             po.setStatus(PurchaseOrderStatus.RECEIVED);
         }
+
+        // Establish payment due amount upon receiving
+        BigDecimal poTotal = po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal due = poTotal.subtract(paid);
+        if (due.compareTo(BigDecimal.ZERO) < 0) due = BigDecimal.ZERO;
+
+        po.setDueAmount(due.setScale(2, RoundingMode.HALF_UP));
+        po.setPaymentStatus(due.compareTo(BigDecimal.ZERO) == 0 ? PaymentStatus.PAID
+                : (paid.compareTo(BigDecimal.ZERO) > 0 ? PaymentStatus.PARTIAL : PaymentStatus.UNPAID));
         po = purchaseOrderRepository.save(po);
+
+        // Update supplier balance
+        if (po.getSupplier() != null) {
+            recalculateSupplierBalance(po.getSupplier().getId());
+        }
 
         log.info("PURCHASE_RECEIVED orderId={} status={} full={} partial={} missing={} stockedItems={}",
                 id, po.getStatus(), fullyReceivedCount, partiallyReceivedCount, notReceivedCount, totalItemsStocked);
 
-        return mapToResponse(po, items);
+        return mapToResponse(po, items, null);
     }
 
-    private PurchaseOrderResponse mapToResponse(PurchaseOrder po, List<PurchaseOrderItem> items) {
+    @Transactional
+    public PurchaseOrderResponse payPurchaseOrder(UUID orderId, PayPurchaseOrderRequest request, String username) {
+        PurchaseOrder po = purchaseOrderRepository.findByIdAndIsDeletedFalse(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase Order not found"));
+
+        if (po.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BusinessValidationException("Purchase order bill is already fully paid");
+        }
+
+        List<PurchasePayment> existingPayments = purchasePaymentRepository
+                .findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(orderId);
+        BigDecimal totalPaidSoFar = existingPayments.stream()
+                .map(PurchasePayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal orderTotal = po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal currentDue = orderTotal.subtract(totalPaidSoFar);
+        if (currentDue.compareTo(BigDecimal.ZERO) <= 0) {
+            po.setPaidAmount(orderTotal);
+            po.setDueAmount(BigDecimal.ZERO);
+            po.setPaymentStatus(PaymentStatus.PAID);
+            purchaseOrderRepository.save(po);
+            if (po.getSupplier() != null) {
+                recalculateSupplierBalance(po.getSupplier().getId());
+            }
+            throw new BusinessValidationException("Purchase order has no remaining balance due");
+        }
+
+        BigDecimal paymentAmount = request.amount();
+        if (paymentAmount.compareTo(currentDue) > 0) {
+            paymentAmount = currentDue; // Cap to remaining due
+        }
+
+        PurchasePayment payment = PurchasePayment.builder()
+                .purchaseOrder(po)
+                .supplier(po.getSupplier())
+                .paymentMethod(request.paymentMethod())
+                .amount(paymentAmount.setScale(2, RoundingMode.HALF_UP))
+                .transactionRef(request.transactionRef())
+                .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                .notes(request.notes() != null && !request.notes().isBlank() ? request.notes().trim() : "PO Bill Payment")
+                .build();
+        payment = purchasePaymentRepository.save(payment);
+
+        BigDecimal newPaid = totalPaidSoFar.add(paymentAmount).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newDue = orderTotal.subtract(newPaid).setScale(2, RoundingMode.HALF_UP);
+        if (newDue.compareTo(BigDecimal.ZERO) < 0) newDue = BigDecimal.ZERO;
+
+        po.setPaidAmount(newPaid);
+        po.setDueAmount(newDue);
+        po.setPaymentStatus(newDue.compareTo(BigDecimal.ZERO) == 0 ? PaymentStatus.PAID : PaymentStatus.PARTIAL);
+        po = purchaseOrderRepository.save(po);
+
+        if (po.getSupplier() != null) {
+            recalculateSupplierBalance(po.getSupplier().getId());
+        }
+
+        log.info("PURCHASE_PAYMENT_RECORDED orderId={} amount={} status={} user={}",
+                orderId, paymentAmount, po.getPaymentStatus(), username);
+
+        List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(orderId);
+        List<PurchasePayment> allPayments = new ArrayList<>(existingPayments);
+        allPayments.add(payment);
+        return mapToResponse(po, items, allPayments);
+    }
+
+    @Transactional
+    public List<PurchaseOrderResponse> settleSupplierDues(UUID supplierId, SettleSupplierDuesRequest request, String username) {
+        Supplier supplier = supplierRepository.findByIdAndIsDeletedFalse(supplierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
+
+        // Fetch unpaid or partially paid purchase orders in FIFO order (oldest invoice date first, then creation time)
+        List<PurchaseOrder> dueOrders = purchaseOrderRepository
+                .findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
+                        supplierId, List.of(PaymentStatus.UNPAID, PaymentStatus.PARTIAL, PaymentStatus.PENDING));
+
+        if (dueOrders.isEmpty()) {
+            throw new BusinessValidationException("Supplier has no outstanding bills to settle");
+        }
+
+        BigDecimal remainingPayment = request.amount();
+        if (remainingPayment == null || remainingPayment.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessValidationException("Settlement amount must be greater than zero");
+        }
+
+        List<PurchaseOrderResponse> settledOrders = new ArrayList<>();
+
+        for (PurchaseOrder po : dueOrders) {
+            if (remainingPayment.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            List<PurchasePayment> existingPayments = purchasePaymentRepository
+                    .findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(po.getId());
+            BigDecimal paidOnPo = existingPayments.stream()
+                    .map(PurchasePayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal poTotal = po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal poDue = poTotal.subtract(paidOnPo);
+            if (poDue.compareTo(BigDecimal.ZERO) <= 0) {
+                po.setPaidAmount(poTotal);
+                po.setDueAmount(BigDecimal.ZERO);
+                po.setPaymentStatus(PaymentStatus.PAID);
+                purchaseOrderRepository.save(po);
+                continue;
+            }
+
+            BigDecimal allocate = remainingPayment.min(poDue);
+            PurchasePayment payment = PurchasePayment.builder()
+                    .purchaseOrder(po)
+                    .supplier(supplier)
+                    .paymentMethod(request.paymentMethod())
+                    .amount(allocate.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .notes(request.notes() != null && !request.notes().isBlank() ? request.notes().trim() : "FIFO Khata Lump-Sum Settlement")
+                    .build();
+            payment = purchasePaymentRepository.save(payment);
+
+            List<PurchasePayment> allPayments = new ArrayList<>(existingPayments);
+            allPayments.add(payment);
+
+            BigDecimal newPaid = paidOnPo.add(allocate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal newDue = poTotal.subtract(newPaid).setScale(2, RoundingMode.HALF_UP);
+            if (newDue.compareTo(BigDecimal.ZERO) < 0) newDue = BigDecimal.ZERO;
+
+            po.setPaidAmount(newPaid);
+            po.setDueAmount(newDue);
+            po.setPaymentStatus(newDue.compareTo(BigDecimal.ZERO) == 0 ? PaymentStatus.PAID : PaymentStatus.PARTIAL);
+            purchaseOrderRepository.save(po);
+
+            remainingPayment = remainingPayment.subtract(allocate);
+
+            List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(po.getId());
+            settledOrders.add(mapToResponse(po, items, allPayments));
+        }
+
+        recalculateSupplierBalance(supplierId);
+
+        BigDecimal totalApplied = request.amount().subtract(remainingPayment);
+        log.info("SUPPLIER_DUES_SETTLED supplierId={} applied={} remainingSupplierBalance={} user={}",
+                supplierId, totalApplied, supplier.getOutstandingBalance(), username);
+
+        return settledOrders;
+    }
+
+    @Transactional(readOnly = true)
+    public SupplierKhataSummaryResponse getSupplierKhataSummary(UUID supplierId) {
+        Supplier supplier = supplierRepository.findByIdAndIsDeletedFalse(supplierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
+
+        List<PurchaseOrder> orders = purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId);
+        List<PurchasePayment> payments = purchasePaymentRepository.findAllBySupplierIdAndIsDeletedFalseOrderByPaymentTimeDesc(supplierId);
+
+        long totalOrdersCount = orders.size();
+        long unpaidOrdersCount = orders.stream()
+                .filter(o -> o.getPaymentStatus() == PaymentStatus.UNPAID || o.getPaymentStatus() == PaymentStatus.PARTIAL)
+                .count();
+
+        BigDecimal totalPurchased = orders.stream()
+                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPaid = payments.stream()
+                .map(PurchasePayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Instant lastPurchaseDate = orders.stream()
+                .map(PurchaseOrder::getCreatedAt)
+                .max(Instant::compareTo)
+                .orElse(null);
+
+        Instant lastPaymentDate = payments.stream()
+                .map(PurchasePayment::getPaymentTime)
+                .max(Instant::compareTo)
+                .orElse(null);
+
+        return new SupplierKhataSummaryResponse(
+                supplier.getId(),
+                supplier.getName(),
+                supplier.getContactPerson(),
+                supplier.getPhone(),
+                supplier.getEmail(),
+                supplier.getGstin(),
+                supplier.getDlNumber(),
+                supplier.getAddress(),
+                supplier.getOutstandingBalance() != null ? supplier.getOutstandingBalance() : BigDecimal.ZERO,
+                totalOrdersCount,
+                unpaidOrdersCount,
+                totalPurchased,
+                totalPaid,
+                lastPurchaseDate,
+                lastPaymentDate
+        );
+    }
+
+    public void recalculateSupplierBalance(UUID supplierId) {
+        if (supplierId == null) return;
+        Supplier supplier = supplierRepository.findByIdAndIsDeletedFalse(supplierId).orElse(null);
+        if (supplier == null) return;
+
+        List<PurchaseOrder> orders = purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId);
+        BigDecimal balance = orders.stream()
+                .filter(p -> p.getStatus() == PurchaseOrderStatus.RECEIVED || p.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED)
+                .map(p -> p.getDueAmount() != null ? p.getDueAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        supplier.setOutstandingBalance(balance.setScale(2, RoundingMode.HALF_UP));
+        supplierRepository.save(supplier);
+    }
+
+    private PurchaseOrderResponse mapToResponse(PurchaseOrder po, List<PurchaseOrderItem> items, List<PurchasePayment> payments) {
         List<PurchaseOrderItemResponse> itemResponses = items.stream()
                 .map(i -> {
                     int orderedTotal = i.getQuantity() + i.getFreeQuantity();
@@ -337,8 +609,25 @@ public class PurchaseService {
                 })
                 .collect(Collectors.toList());
 
+        List<PurchasePayment> poPayments = payments != null ? payments
+                : (po.getId() != null && purchasePaymentRepository != null ? purchasePaymentRepository.findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(po.getId()) : Collections.emptyList());
+
+        List<PurchasePaymentResponse> paymentResponses = poPayments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+
         BigDecimal subtotal = po.getSubtotal() != null ? po.getSubtotal()
                 : (po.getTotalAmount() != null && po.getTaxAmount() != null ? po.getTotalAmount().subtract(po.getTaxAmount()) : BigDecimal.ZERO);
+
+        BigDecimal paid = po.getPaidAmount() != null ? po.getPaidAmount()
+                : paymentResponses.stream().map(PurchasePaymentResponse::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal total = po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal due = po.getDueAmount() != null ? po.getDueAmount() : total.subtract(paid);
+        if (due.compareTo(BigDecimal.ZERO) < 0) due = BigDecimal.ZERO;
+
+        PaymentStatus pStatus = po.getPaymentStatus() != null ? po.getPaymentStatus()
+                : (due.compareTo(BigDecimal.ZERO) == 0 ? PaymentStatus.PAID : (paid.compareTo(BigDecimal.ZERO) > 0 ? PaymentStatus.PARTIAL : PaymentStatus.UNPAID));
 
         return new PurchaseOrderResponse(
                 po.getId(),
@@ -351,10 +640,30 @@ public class PurchaseService {
                 po.getDiscountAmount() != null ? po.getDiscountAmount() : BigDecimal.ZERO,
                 po.getTotalAmount(),
                 po.getTaxAmount(),
+                paid,
+                due,
+                pStatus,
                 po.getStatus(),
                 itemResponses,
+                paymentResponses,
                 po.getCreatedAt(),
                 po.getReceivingNotes()
+        );
+    }
+
+    private PurchasePaymentResponse mapToPaymentResponse(PurchasePayment p) {
+        return new PurchasePaymentResponse(
+                p.getId(),
+                p.getPurchaseOrder() != null ? p.getPurchaseOrder().getId() : null,
+                p.getPurchaseOrder() != null ? p.getPurchaseOrder().getInvoiceNumber() : null,
+                p.getSupplier() != null ? p.getSupplier().getId() : null,
+                p.getSupplier() != null ? p.getSupplier().getName() : null,
+                p.getPaymentMethod(),
+                p.getAmount(),
+                p.getTransactionRef(),
+                p.getPaymentTime(),
+                p.getNotes(),
+                p.getCreatedAt()
         );
     }
 }

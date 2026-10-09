@@ -10,6 +10,7 @@ import { showModal, confirm } from '../components/modal.js';
 import { showToast } from '../components/toast.js';
 import { createSearchableSelect } from '../components/searchableSelect.js';
 import { can } from '../permissions.js';
+import { openPayPoModal } from './supplierDetail.js';
 
 const SHORTAGE_STORAGE_KEY = 'medstack_po_shortage_basket';
 
@@ -146,7 +147,13 @@ export default function renderPurchases(container) {
 
       const columns = [
         { key: 'invoiceNumber', label: 'Invoice #', render: (val) => `<strong style="color:var(--accent);font-family:var(--font-mono)">${val || '—'}</strong>` },
-        { key: 'supplierName', label: 'Distributor / Supplier', render: (val) => `<strong>${val || '—'}</strong>` },
+        {
+          key: 'supplierName',
+          label: 'Distributor / Supplier',
+          render: (val, row) => row.supplierId
+            ? `<a href="#/supplier-detail?id=${row.supplierId}" style="color:var(--text-primary);font-weight:700;text-decoration:none" title="View Supplier Khata & Invoices">🏢 ${val || '—'}</a>`
+            : `<strong>${val || '—'}</strong>`
+        },
         { key: 'invoiceDate', label: 'Invoice Date', render: (val) => formatDate(val) },
         { key: 'subtotal', label: 'Subtotal', render: (val) => formatCurrency(val) },
         {
@@ -163,8 +170,22 @@ export default function renderPurchases(container) {
         { key: 'taxAmount', label: 'GST Tax', render: (val) => formatCurrency(val) },
         { key: 'totalAmount', label: 'Grand Total', render: (val) => `<strong style="color:var(--text-primary)">${formatCurrency(val)}</strong>` },
         {
+          key: 'dueAmount',
+          label: 'Payment Due',
+          render: (val, row) => {
+            const total = Number(row.totalAmount) || 0;
+            const paid = Number(row.paidAmount != null ? row.paidAmount : (row.paymentStatus === 'PAID' ? total : 0));
+            const due = Number(row.dueAmount != null ? row.dueAmount : Math.max(0, total - paid));
+            const isPaid = row.paymentStatus === 'PAID' || due <= 0;
+            const isPartial = row.paymentStatus === 'PARTIAL' && due > 0;
+            const badgeClass = isPaid ? 'badge-success' : (isPartial ? 'badge-warning' : 'badge-danger');
+            const badgeText = isPaid ? 'PAID' : (isPartial ? `PARTIAL (${formatCurrency(due)})` : `DUE: ${formatCurrency(due)}`);
+            return `<span class="badge ${badgeClass}">${badgeText}</span>`;
+          }
+        },
+        {
           key: 'status',
-          label: 'Status',
+          label: 'Delivery',
           render: (val) => statusBadge(val)
         }
       ];
@@ -191,6 +212,24 @@ export default function renderPurchases(container) {
             openReceiveModal(po);
           }
         });
+
+        actions.push({
+          label: 'Clear Bill',
+          class: 'btn-secondary',
+          icon: '💳 Clear Bill',
+          onClick: (po) => {
+            const total = Number(po.totalAmount) || 0;
+            const paid = Number(po.paidAmount != null ? po.paidAmount : (po.paymentStatus === 'PAID' ? total : 0));
+            const due = Number(po.dueAmount != null ? po.dueAmount : Math.max(0, total - paid));
+            if (due <= 0) {
+              showToast('Purchase order is already fully paid', 'info');
+              return;
+            }
+            openPayPoModal(po, due, { id: po.supplierId, name: po.supplierName }, () => {
+              loadData(currentPage);
+            });
+          }
+        });
       }
 
       renderTable(tableContainer, columns, content, { actions, defaultSortKey: 'invoiceDate', defaultSortDir: 'desc' });
@@ -207,6 +246,22 @@ export default function renderPurchases(container) {
     const modalButtons = [
       { label: 'Close', class: 'btn-secondary', onClick: () => modal.close() }
     ];
+    const total = Number(po.totalAmount) || 0;
+    const paid = Number(po.paidAmount != null ? po.paidAmount : (po.paymentStatus === 'PAID' ? total : 0));
+    const due = Number(po.dueAmount != null ? po.dueAmount : Math.max(0, total - paid));
+
+    if (due > 0 && can('manage_purchases')) {
+      modalButtons.push({
+        label: '💳 Record Payment / Clear Bill',
+        class: 'btn-secondary',
+        onClick: () => {
+          modal.close();
+          openPayPoModal(po, due, { id: po.supplierId, name: po.supplierName }, () => {
+            loadData(currentPage);
+          });
+        }
+      });
+    }
 
     if (isPending && can('manage_purchases')) {
       modalButtons.push({
@@ -240,6 +295,12 @@ export default function renderPurchases(container) {
             <div>
               <span style="color:var(--text-muted);display:block;font-size:0.75rem">Receiving Status:</span>
               ${statusBadge(po.status)}
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;font-size:0.75rem">Payment Status:</span>
+              <strong style="color:${due > 0 ? 'var(--danger)' : 'var(--success)'}">
+                ${due > 0 ? `DUE: ${formatCurrency(due)} (Paid: ${formatCurrency(paid)})` : `✓ FULLY PAID (${formatCurrency(paid)})`}
+              </strong>
             </div>
           </div>
           ${po.receivingNotes ? `

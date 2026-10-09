@@ -7,6 +7,7 @@ import com.pharma.medstack.repository.InventoryBatchRepository;
 import com.pharma.medstack.repository.MedicineRepository;
 import com.pharma.medstack.repository.PurchaseOrderItemRepository;
 import com.pharma.medstack.repository.PurchaseOrderRepository;
+import com.pharma.medstack.repository.PurchasePaymentRepository;
 import com.pharma.medstack.repository.SupplierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +32,7 @@ class PurchaseServiceTest {
 
     @Mock private PurchaseOrderRepository purchaseOrderRepository;
     @Mock private PurchaseOrderItemRepository purchaseOrderItemRepository;
+    @Mock private PurchasePaymentRepository purchasePaymentRepository;
     @Mock private InventoryBatchRepository inventoryBatchRepository;
     @Mock private SupplierRepository supplierRepository;
     @Mock private MedicineRepository medicineRepository;
@@ -224,5 +227,107 @@ class PurchaseServiceTest {
         assertEquals("NOT_RECEIVED", item.getItemStatus());
         assertEquals(0, item.getReceivedQuantity());
         assertEquals(0, item.getReceivedFreeQuantity());
+    }
+
+    @Test
+    void testPayPurchaseOrder_partialAndFullPayment() {
+        UUID orderId = UUID.randomUUID();
+        Supplier supplier = new Supplier();
+        supplier.setId(UUID.randomUUID());
+        supplier.setOutstandingBalance(new BigDecimal("1000.00"));
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .id(orderId)
+                .supplier(supplier)
+                .invoiceNumber("INV-001")
+                .totalAmount(new BigDecimal("1000.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(new BigDecimal("1000.00"))
+                .status(PurchaseOrderStatus.RECEIVED)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        when(purchaseOrderRepository.findByIdAndIsDeletedFalse(orderId)).thenReturn(Optional.of(po));
+        when(purchasePaymentRepository.findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(orderId))
+                .thenReturn(Collections.emptyList());
+        when(purchasePaymentRepository.save(any(PurchasePayment.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(supplierRepository.findByIdAndIsDeletedFalse(supplier.getId())).thenReturn(Optional.of(supplier));
+        when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplier.getId())).thenReturn(List.of(po));
+
+        // Pay 400.00
+        var req = new com.pharma.medstack.model.request.PayPurchaseOrderRequest(
+                PaymentMethod.CASH, new BigDecimal("400.00"), "TXN-1", null, "Partial pay"
+        );
+        var resp = purchaseService.payPurchaseOrder(orderId, req, "owner");
+
+        assertEquals(new BigDecimal("400.00"), po.getPaidAmount());
+        assertEquals(new BigDecimal("600.00"), po.getDueAmount());
+        assertEquals(PaymentStatus.PARTIAL, po.getPaymentStatus());
+        assertEquals(new BigDecimal("600.00"), supplier.getOutstandingBalance());
+    }
+
+    @Test
+    void testSettleSupplierDues_fifoAllocation() {
+        UUID supplierId = UUID.randomUUID();
+        Supplier supplier = new Supplier();
+        supplier.setId(supplierId);
+        supplier.setOutstandingBalance(new BigDecimal("1500.00"));
+
+        // Order 1: older bill (1000 total, 0 paid, 1000 due)
+        PurchaseOrder po1 = PurchaseOrder.builder()
+                .id(UUID.randomUUID())
+                .supplier(supplier)
+                .invoiceNumber("INV-OLD")
+                .invoiceDate(LocalDate.now().minusDays(10))
+                .totalAmount(new BigDecimal("1000.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(new BigDecimal("1000.00"))
+                .status(PurchaseOrderStatus.RECEIVED)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        // Order 2: newer bill (500 total, 0 paid, 500 due)
+        PurchaseOrder po2 = PurchaseOrder.builder()
+                .id(UUID.randomUUID())
+                .supplier(supplier)
+                .invoiceNumber("INV-NEW")
+                .invoiceDate(LocalDate.now().minusDays(2))
+                .totalAmount(new BigDecimal("500.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(new BigDecimal("500.00"))
+                .status(PurchaseOrderStatus.RECEIVED)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        when(supplierRepository.findByIdAndIsDeletedFalse(supplierId)).thenReturn(Optional.of(supplier));
+        when(purchaseOrderRepository.findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
+                eq(supplierId), anyList())).thenReturn(List.of(po1, po2));
+        when(purchasePaymentRepository.save(any(PurchasePayment.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId)).thenReturn(List.of(po1, po2));
+
+        // Settle lump sum 1200: should fully clear PO1 (1000) and partially clear PO2 (200 paid, 300 due)
+        var req = new com.pharma.medstack.model.request.SettleSupplierDuesRequest(
+                PaymentMethod.UPI, new BigDecimal("1200.00"), "UPI-LUMP-1", null, "Lump sum settle"
+        );
+
+        var settled = purchaseService.settleSupplierDues(supplierId, req, "owner");
+
+        assertEquals(2, settled.size());
+        assertEquals(PaymentStatus.PAID, po1.getPaymentStatus());
+        assertEquals(new BigDecimal("1000.00"), po1.getPaidAmount());
+        assertEquals(new BigDecimal("0.00"), po1.getDueAmount());
+
+        assertEquals(PaymentStatus.PARTIAL, po2.getPaymentStatus());
+        assertEquals(new BigDecimal("200.00"), po2.getPaidAmount());
+        assertEquals(new BigDecimal("300.00"), po2.getDueAmount());
+
+        // Supplier balance remaining should be 300.00
+        assertEquals(new BigDecimal("300.00"), supplier.getOutstandingBalance());
     }
 }

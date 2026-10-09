@@ -350,6 +350,11 @@ public class PurchaseService {
                 : (paid.compareTo(BigDecimal.ZERO) > 0 ? PaymentStatus.PARTIAL : PaymentStatus.UNPAID));
         po = purchaseOrderRepository.save(po);
 
+        // Check if supplier has any unallocated advance payments to automatically apply
+        if (po.getSupplier() != null && po.getDueAmount().compareTo(BigDecimal.ZERO) > 0) {
+            applySupplierAdvancesToOrder(po);
+        }
+
         // Update supplier balance
         if (po.getSupplier() != null) {
             recalculateSupplierBalance(po.getSupplier().getId());
@@ -359,6 +364,60 @@ public class PurchaseService {
                 id, po.getStatus(), fullyReceivedCount, partiallyReceivedCount, notReceivedCount, totalItemsStocked);
 
         return mapToResponse(po, items, null);
+    }
+
+    private void applySupplierAdvancesToOrder(PurchaseOrder po) {
+        if (po == null || po.getSupplier() == null) return;
+        List<PurchasePayment> advances = purchasePaymentRepository
+                .findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(po.getSupplier().getId());
+        if (advances.isEmpty()) return;
+
+        BigDecimal currentDue = po.getDueAmount() != null ? po.getDueAmount() : po.getTotalAmount();
+        BigDecimal currentPaid = po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO;
+
+        for (PurchasePayment adv : advances) {
+            if (currentDue.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal advAmt = adv.getAmount();
+            if (advAmt == null || advAmt.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            if (advAmt.compareTo(currentDue) <= 0) {
+                // Whole advance voucher consumed by this PO
+                adv.setPurchaseOrder(po);
+                adv.setNotes("Allocated from advance credit: " + (adv.getNotes() != null ? adv.getNotes() : "Advance"));
+                purchasePaymentRepository.save(adv);
+
+                currentPaid = currentPaid.add(advAmt);
+                currentDue = currentDue.subtract(advAmt);
+            } else {
+                // Partial advance voucher consumed: split into consumed portion and remaining advance
+                BigDecimal remainingAdv = advAmt.subtract(currentDue);
+                adv.setPurchaseOrder(po);
+                adv.setAmount(currentDue.setScale(2, RoundingMode.HALF_UP));
+                adv.setNotes("Allocated from advance credit: " + (adv.getNotes() != null ? adv.getNotes() : "Advance"));
+                purchasePaymentRepository.save(adv);
+
+                currentPaid = currentPaid.add(currentDue);
+
+                PurchasePayment remVoucher = PurchasePayment.builder()
+                        .purchaseOrder(null)
+                        .supplier(po.getSupplier())
+                        .paymentMethod(adv.getPaymentMethod())
+                        .amount(remainingAdv.setScale(2, RoundingMode.HALF_UP))
+                        .transactionRef(adv.getTransactionRef())
+                        .paymentTime(adv.getPaymentTime())
+                        .notes("Remaining advance credit after allocation to Invoice #" + po.getInvoiceNumber())
+                        .build();
+                purchasePaymentRepository.save(remVoucher);
+
+                currentDue = BigDecimal.ZERO;
+            }
+        }
+
+        po.setPaidAmount(currentPaid.setScale(2, RoundingMode.HALF_UP));
+        po.setDueAmount(currentDue.setScale(2, RoundingMode.HALF_UP));
+        po.setPaymentStatus(currentDue.compareTo(BigDecimal.ZERO) == 0 ? PaymentStatus.PAID : PaymentStatus.PARTIAL);
+        purchaseOrderRepository.save(po);
     }
 
     @Transactional
@@ -389,23 +448,40 @@ public class PurchaseService {
             throw new BusinessValidationException("Purchase order has no remaining balance due");
         }
 
-        BigDecimal paymentAmount = request.amount();
-        if (paymentAmount.compareTo(currentDue) > 0) {
-            paymentAmount = currentDue; // Cap to remaining due
+        BigDecimal requestedAmount = request.amount();
+        if (requestedAmount == null || requestedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessValidationException("Payment amount must be greater than zero");
         }
+
+        BigDecimal paymentForBill = requestedAmount.min(currentDue);
+        BigDecimal excessAdvance = requestedAmount.subtract(paymentForBill);
 
         PurchasePayment payment = PurchasePayment.builder()
                 .purchaseOrder(po)
                 .supplier(po.getSupplier())
                 .paymentMethod(request.paymentMethod())
-                .amount(paymentAmount.setScale(2, RoundingMode.HALF_UP))
+                .amount(paymentForBill.setScale(2, RoundingMode.HALF_UP))
                 .transactionRef(request.transactionRef())
                 .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
                 .notes(request.notes() != null && !request.notes().isBlank() ? request.notes().trim() : "PO Bill Payment")
                 .build();
         payment = purchasePaymentRepository.save(payment);
 
-        BigDecimal newPaid = totalPaidSoFar.add(paymentAmount).setScale(2, RoundingMode.HALF_UP);
+        if (excessAdvance.compareTo(BigDecimal.ZERO) > 0) {
+            // Record excess as advance payment voucher for supplier Khata
+            PurchasePayment advancePayment = PurchasePayment.builder()
+                    .purchaseOrder(null)
+                    .supplier(po.getSupplier())
+                    .paymentMethod(request.paymentMethod())
+                    .amount(excessAdvance.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .notes("Advance credit (Overpayment of " + requestedAmount + " on Invoice #" + po.getInvoiceNumber() + ")")
+                    .build();
+            purchasePaymentRepository.save(advancePayment);
+        }
+
+        BigDecimal newPaid = totalPaidSoFar.add(paymentForBill).setScale(2, RoundingMode.HALF_UP);
         BigDecimal newDue = orderTotal.subtract(newPaid).setScale(2, RoundingMode.HALF_UP);
         if (newDue.compareTo(BigDecimal.ZERO) < 0) newDue = BigDecimal.ZERO;
 
@@ -418,8 +494,8 @@ public class PurchaseService {
             recalculateSupplierBalance(po.getSupplier().getId());
         }
 
-        log.info("PURCHASE_PAYMENT_RECORDED orderId={} amount={} status={} user={}",
-                orderId, paymentAmount, po.getPaymentStatus(), username);
+        log.info("PURCHASE_PAYMENT_RECORDED orderId={} appliedToBill={} excessAdvance={} status={} user={}",
+                orderId, paymentForBill, excessAdvance, po.getPaymentStatus(), username);
 
         List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(orderId);
         List<PurchasePayment> allPayments = new ArrayList<>(existingPayments);
@@ -432,21 +508,34 @@ public class PurchaseService {
         Supplier supplier = supplierRepository.findByIdAndIsDeletedFalse(supplierId)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
 
-        // Fetch unpaid or partially paid purchase orders in FIFO order (oldest invoice date first, then creation time)
-        List<PurchaseOrder> dueOrders = purchaseOrderRepository
-                .findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
-                        supplierId, List.of(PaymentStatus.UNPAID, PaymentStatus.PARTIAL, PaymentStatus.PENDING));
-
-        if (dueOrders.isEmpty()) {
-            throw new BusinessValidationException("Supplier has no outstanding bills to settle");
-        }
-
         BigDecimal remainingPayment = request.amount();
         if (remainingPayment == null || remainingPayment.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessValidationException("Settlement amount must be greater than zero");
         }
 
+        // Fetch unpaid or partially paid purchase orders in FIFO order (oldest invoice date first, then creation time)
+        List<PurchaseOrder> dueOrders = purchaseOrderRepository
+                .findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
+                        supplierId, List.of(PaymentStatus.UNPAID, PaymentStatus.PARTIAL, PaymentStatus.PENDING));
+
         List<PurchaseOrderResponse> settledOrders = new ArrayList<>();
+
+        if (dueOrders.isEmpty()) {
+            // No due orders: record entire amount as advance payment for supplier Khata
+            PurchasePayment advancePayment = PurchasePayment.builder()
+                    .purchaseOrder(null)
+                    .supplier(supplier)
+                    .paymentMethod(request.paymentMethod())
+                    .amount(remainingPayment.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .notes(request.notes() != null && !request.notes().isBlank() ? request.notes().trim() : "Advance Payment / Khata Credit")
+                    .build();
+            purchasePaymentRepository.save(advancePayment);
+            recalculateSupplierBalance(supplierId);
+            log.info("SUPPLIER_ADVANCE_RECORDED supplierId={} amount={} user={}", supplierId, remainingPayment, username);
+            return Collections.emptyList();
+        }
 
         for (PurchaseOrder po : dueOrders) {
             if (remainingPayment.compareTo(BigDecimal.ZERO) <= 0) break;
@@ -497,11 +586,25 @@ public class PurchaseService {
             settledOrders.add(mapToResponse(po, items, allPayments));
         }
 
+        if (remainingPayment.compareTo(BigDecimal.ZERO) > 0) {
+            // Overpayment excess: record remaining payment as advance payment voucher for supplier Khata
+            PurchasePayment advancePayment = PurchasePayment.builder()
+                    .purchaseOrder(null)
+                    .supplier(supplier)
+                    .paymentMethod(request.paymentMethod())
+                    .amount(remainingPayment.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .notes(request.notes() != null && !request.notes().isBlank() ? request.notes().trim() : "Advance Payment / Khata Credit (Excess settlement)")
+                    .build();
+            purchasePaymentRepository.save(advancePayment);
+        }
+
         recalculateSupplierBalance(supplierId);
 
         BigDecimal totalApplied = request.amount().subtract(remainingPayment);
-        log.info("SUPPLIER_DUES_SETTLED supplierId={} applied={} remainingSupplierBalance={} user={}",
-                supplierId, totalApplied, supplier.getOutstandingBalance(), username);
+        log.info("SUPPLIER_DUES_SETTLED supplierId={} appliedToBills={} advanceCredit={} user={}",
+                supplierId, totalApplied, remainingPayment, username);
 
         return settledOrders;
     }
@@ -520,6 +623,7 @@ public class PurchaseService {
                 .count();
 
         BigDecimal totalPurchased = orders.stream()
+                .filter(p -> p.getStatus() == PurchaseOrderStatus.RECEIVED || p.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED)
                 .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -562,10 +666,20 @@ public class PurchaseService {
         if (supplier == null) return;
 
         List<PurchaseOrder> orders = purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId);
-        BigDecimal balance = orders.stream()
+        List<PurchasePayment> unallocatedAdvances = purchasePaymentRepository
+                .findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(supplierId);
+
+        BigDecimal totalDueOnOrders = orders.stream()
                 .filter(p -> p.getStatus() == PurchaseOrderStatus.RECEIVED || p.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED)
                 .map(p -> p.getDueAmount() != null ? p.getDueAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalAdvanceCredit = unallocatedAdvances.stream()
+                .map(PurchasePayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Balance = Pending bills due - unallocated advance credits (can be negative if advance > due)
+        BigDecimal balance = totalDueOnOrders.subtract(totalAdvanceCredit);
 
         supplier.setOutstandingBalance(balance.setScale(2, RoundingMode.HALF_UP));
         supplierRepository.save(supplier);

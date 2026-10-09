@@ -947,10 +947,6 @@ function openSettleDuesModal(customer, currentBalance, onSuccess) {
             showToast('Please enter a valid payment amount greater than ₹0', 'error');
             return;
           }
-          if (amt > currentBalance) {
-            showToast(`Payment cannot exceed current outstanding balance of ${formatCurrency(currentBalance)}`, 'error');
-            return;
-          }
 
           const ref = (modalEl?.querySelector('#settleDueTxnRef') || document.getElementById('settleDueTxnRef'))?.value.trim() || null;
           const dtVal = (modalEl?.querySelector('#settleDuePaymentTime') || document.getElementById('settleDuePaymentTime'))?.value;
@@ -971,7 +967,12 @@ function openSettleDuesModal(customer, currentBalance, onSuccess) {
             });
 
             if (resp?.success) {
-              showToast(`Payment of ${formatCurrency(amt)} successfully recorded for ${customer.name}!`, 'success');
+              const curBal = Math.max(0, currentBalance);
+              const excess = amt > curBal ? (amt - curBal) : 0;
+              const msg = excess > 0
+                ? `Payment of ${formatCurrency(amt)} recorded (${curBal > 0 ? 'Dues cleared + ' : ''}${formatCurrency(excess)} Advance Credit added to Khata)!`
+                : `Payment of ${formatCurrency(amt)} successfully recorded for ${customer.name}!`;
+              showToast(msg, 'success');
               modal.close();
               if (typeof onSuccess === 'function') onSuccess();
             }
@@ -1051,7 +1052,7 @@ function openCollectBillPaymentModal(billId, billNumber, billDue, customer, onSu
 
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Payment Amount (₹) *</label>
-          <input type="number" id="singleBillAmountInput" class="form-control" value="${billDue.toFixed(2)}" min="0.01" max="${billDue.toFixed(2)}" step="0.01" style="font-size:1.15rem;font-weight:bold" />
+          <input type="number" id="singleBillAmountInput" class="form-control" value="${billDue.toFixed(2)}" min="0.01" step="0.01" style="font-size:1.15rem;font-weight:bold" />
         </div>
 
         <div class="form-group" style="margin-bottom:0">
@@ -1090,10 +1091,6 @@ function openCollectBillPaymentModal(billId, billNumber, billDue, customer, onSu
             showToast('Please enter a valid payment amount greater than ₹0', 'error');
             return;
           }
-          if (amt > billDue) {
-            showToast(`Payment cannot exceed bill due amount of ${formatCurrency(billDue)}`, 'error');
-            return;
-          }
 
           const ref = (modalEl?.querySelector('#singleBillTxnRef') || document.getElementById('singleBillTxnRef'))?.value.trim() || null;
           const dtVal = (modalEl?.querySelector('#singleBillPaymentTime') || document.getElementById('singleBillPaymentTime'))?.value;
@@ -1114,7 +1111,11 @@ function openCollectBillPaymentModal(billId, billNumber, billDue, customer, onSu
             });
 
             if (resp?.success) {
-              showToast(`Payment of ${formatCurrency(amt)} recorded for Bill #${billNumber}!`, 'success');
+              const excess = amt > billDue ? (amt - billDue) : 0;
+              const msg = excess > 0
+                ? `Payment of ${formatCurrency(amt)} recorded (Bill #${billNumber} cleared + ${formatCurrency(excess)} Advance Credit added to Khata)!`
+                : `Payment of ${formatCurrency(amt)} recorded for Bill #${billNumber}!`;
+              showToast(msg, 'success');
               modal.close();
               if (typeof onSuccess === 'function') onSuccess();
             }

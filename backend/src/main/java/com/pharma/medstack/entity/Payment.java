@@ -25,8 +25,12 @@ public class Payment extends AuditableEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id", nullable = true)
     private SalesOrder salesOrder;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = true)
+    private Customer customer;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false)

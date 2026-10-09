@@ -256,6 +256,8 @@ class PurchaseServiceTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(supplierRepository.findByIdAndIsDeletedFalse(supplier.getId())).thenReturn(Optional.of(supplier));
         when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplier.getId())).thenReturn(List.of(po));
+        when(purchasePaymentRepository.findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(supplier.getId()))
+                .thenReturn(Collections.emptyList());
 
         // Pay 400.00
         var req = new com.pharma.medstack.model.request.PayPurchaseOrderRequest(
@@ -267,6 +269,58 @@ class PurchaseServiceTest {
         assertEquals(new BigDecimal("600.00"), po.getDueAmount());
         assertEquals(PaymentStatus.PARTIAL, po.getPaymentStatus());
         assertEquals(new BigDecimal("600.00"), supplier.getOutstandingBalance());
+    }
+
+    @Test
+    void testPayPurchaseOrder_overpaymentCreatesAdvanceCredit() {
+        UUID orderId = UUID.randomUUID();
+        Supplier supplier = new Supplier();
+        supplier.setId(UUID.randomUUID());
+        supplier.setName("Test Supplier");
+        supplier.setOutstandingBalance(new BigDecimal("500.00"));
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .id(orderId)
+                .supplier(supplier)
+                .invoiceNumber("INV-OVERPAY")
+                .invoiceDate(LocalDate.now())
+                .totalAmount(new BigDecimal("500.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(new BigDecimal("500.00"))
+                .status(PurchaseOrderStatus.RECEIVED)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        when(purchaseOrderRepository.findByIdAndIsDeletedFalse(orderId)).thenReturn(Optional.of(po));
+        when(purchasePaymentRepository.findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(orderId))
+                .thenReturn(Collections.emptyList());
+        when(purchasePaymentRepository.save(any(PurchasePayment.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(supplierRepository.findByIdAndIsDeletedFalse(supplier.getId())).thenReturn(Optional.of(supplier));
+        when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplier.getId())).thenReturn(List.of(po));
+
+        // Excess advance payments will return 200.00 advance
+        PurchasePayment advanceVoucher = PurchasePayment.builder()
+                .supplier(supplier)
+                .purchaseOrder(null)
+                .amount(new BigDecimal("200.00"))
+                .build();
+        when(purchasePaymentRepository.findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(supplier.getId()))
+                .thenReturn(List.of(advanceVoucher));
+
+        // Pay 700.00 on a 500.00 bill (200.00 advance)
+        var req = new com.pharma.medstack.model.request.PayPurchaseOrderRequest(
+                PaymentMethod.UPI, new BigDecimal("700.00"), "UPI-OVERPAY", null, "Overpay test"
+        );
+        purchaseService.payPurchaseOrder(orderId, req, "owner");
+
+        assertEquals(new BigDecimal("500.00"), po.getPaidAmount());
+        assertEquals(new BigDecimal("0.00"), po.getDueAmount());
+        assertEquals(PaymentStatus.PAID, po.getPaymentStatus());
+        // Supplier balance: 0.00 bill due - 200.00 advance = -200.00
+        assertEquals(new BigDecimal("-200.00"), supplier.getOutstandingBalance());
     }
 
     @Test
@@ -310,6 +364,8 @@ class PurchaseServiceTest {
         when(purchaseOrderRepository.save(any(PurchaseOrder.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId)).thenReturn(List.of(po1, po2));
+        when(purchasePaymentRepository.findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(supplierId))
+                .thenReturn(Collections.emptyList());
 
         // Settle lump sum 1200: should fully clear PO1 (1000) and partially clear PO2 (200 paid, 300 due)
         var req = new com.pharma.medstack.model.request.SettleSupplierDuesRequest(
@@ -329,5 +385,58 @@ class PurchaseServiceTest {
 
         // Supplier balance remaining should be 300.00
         assertEquals(new BigDecimal("300.00"), supplier.getOutstandingBalance());
+    }
+
+    @Test
+    void testSettleSupplierDues_overpaymentCreatesAdvanceCredit() {
+        UUID supplierId = UUID.randomUUID();
+        Supplier supplier = new Supplier();
+        supplier.setId(supplierId);
+        supplier.setOutstandingBalance(new BigDecimal("400.00"));
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .id(UUID.randomUUID())
+                .supplier(supplier)
+                .invoiceNumber("INV-SINGLE")
+                .invoiceDate(LocalDate.now())
+                .totalAmount(new BigDecimal("400.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .dueAmount(new BigDecimal("400.00"))
+                .status(PurchaseOrderStatus.RECEIVED)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        when(supplierRepository.findByIdAndIsDeletedFalse(supplierId)).thenReturn(Optional.of(supplier));
+        when(purchaseOrderRepository.findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
+                eq(supplierId), anyList())).thenReturn(List.of(po));
+        when(purchasePaymentRepository.save(any(PurchasePayment.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId)).thenReturn(List.of(po));
+
+        // Excess advance payments will return 600.00 advance
+        PurchasePayment advanceVoucher = PurchasePayment.builder()
+                .supplier(supplier)
+                .purchaseOrder(null)
+                .amount(new BigDecimal("600.00"))
+                .build();
+        when(purchasePaymentRepository.findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(supplierId))
+                .thenReturn(List.of(advanceVoucher));
+
+        // Settle 1000.00 on a 400.00 due
+        var req = new com.pharma.medstack.model.request.SettleSupplierDuesRequest(
+                PaymentMethod.CASH, new BigDecimal("1000.00"), "CASH-OVERPAY", null, "Settle with advance"
+        );
+
+        var settled = purchaseService.settleSupplierDues(supplierId, req, "owner");
+
+        assertEquals(1, settled.size());
+        assertEquals(PaymentStatus.PAID, po.getPaymentStatus());
+        assertEquals(new BigDecimal("400.00"), po.getPaidAmount());
+        assertEquals(new BigDecimal("0.00"), po.getDueAmount());
+
+        // Supplier balance: 0.00 due - 600.00 advance = -600.00
+        assertEquals(new BigDecimal("-600.00"), supplier.getOutstandingBalance());
     }
 }

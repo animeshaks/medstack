@@ -116,21 +116,21 @@ export default async function renderSupplierDetail(container, params = {}) {
 
       <!-- Financial KPI Summary Cards -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:24px">
-        <!-- Outstanding Balance Card -->
-        <div class="card" style="padding:16px 18px;border-left:4px solid ${outstandingDue > 0 ? 'var(--danger)' : 'var(--success)'};background:${outstandingDue > 0 ? 'rgba(239,68,68,0.03)' : 'var(--bg-secondary)'}">
-          <div style="font-size:0.75rem;font-weight:700;color:${outstandingDue > 0 ? 'var(--danger)' : 'var(--text-muted)'};text-transform:uppercase;letter-spacing:0.5px">
-            Outstanding Payable
+        <!-- Outstanding Balance / Advance Card -->
+        <div class="card" style="padding:16px 18px;border-left:4px solid ${outstandingDue > 0 ? 'var(--danger)' : (outstandingDue < 0 ? 'var(--success)' : 'var(--border)')};background:${outstandingDue > 0 ? 'rgba(239,68,68,0.03)' : (outstandingDue < 0 ? 'rgba(16,185,129,0.04)' : 'var(--bg-secondary)')}">
+          <div style="font-size:0.75rem;font-weight:700;color:${outstandingDue > 0 ? 'var(--danger)' : (outstandingDue < 0 ? 'var(--success)' : 'var(--text-muted)')};text-transform:uppercase;letter-spacing:0.5px">
+            ${outstandingDue < 0 ? 'Advance Credit' : 'Outstanding Payable'}
           </div>
-          <div style="font-size:1.6rem;font-weight:800;color:${outstandingDue > 0 ? 'var(--danger)' : 'var(--success)'};margin:4px 0 2px;font-family:var(--font-mono)">
-            ${formatCurrency(outstandingDue)}
+          <div style="font-size:1.6rem;font-weight:800;color:${outstandingDue > 0 ? 'var(--danger)' : (outstandingDue < 0 ? 'var(--success)' : 'var(--text-muted)')};margin:4px 0 2px;font-family:var(--font-mono)">
+            ${outstandingDue < 0 ? `${formatCurrency(Math.abs(outstandingDue))} (Cr)` : formatCurrency(outstandingDue)}
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
             <span style="font-size:0.75rem;color:var(--text-muted)">
-              ${unpaidOrders.length} unpaid bill${unpaidOrders.length === 1 ? '' : 's'}
+              ${outstandingDue < 0 ? '🟢 Advance with distributor' : `${unpaidOrders.length} unpaid bill${unpaidOrders.length === 1 ? '' : 's'}`}
             </span>
-            ${outstandingDue > 0 && can('manage_purchases') ? `
+            ${can('manage_purchases') ? `
               <button class="btn btn-sm btn-primary" id="btnSettleSupplierDuesCard" style="padding:4px 10px;font-size:0.75rem">
-                ⚡ Settle Dues
+                ${outstandingDue > 0 ? '⚡ Settle Dues' : '💳 Pay / Advance'}
               </button>
             ` : ''}
           </div>
@@ -522,11 +522,14 @@ export default async function renderSupplierDetail(container, params = {}) {
       });
 
       payments.forEach(p => {
+        const isAdvance = !p.purchaseOrderId && !p.invoiceNumber;
         ledgerEntries.push({
-          type: 'PAYMENT',
+          type: isAdvance ? 'ADVANCE' : 'PAYMENT',
           date: new Date(p.paymentTime || p.createdAt),
-          ref: p.invoiceNumber || p.transactionRef || 'Payment',
-          description: `Disbursement (${getPaymentModeLabel(p.paymentMethod)}) ${p.transactionRef ? 'Ref: ' + p.transactionRef : ''}`,
+          ref: isAdvance ? (p.transactionRef || 'ADVANCE') : (p.invoiceNumber || p.transactionRef || 'Payment'),
+          description: isAdvance
+            ? `Advance Credit Disbursement (${getPaymentModeLabel(p.paymentMethod)}) ${p.notes ? '• ' + p.notes : ''}`
+            : `Disbursement (${getPaymentModeLabel(p.paymentMethod)}) ${p.transactionRef ? 'Ref: ' + p.transactionRef : ''}`,
           debit: 0,
           credit: Number(p.amount) || 0 // Decrease liability
         });
@@ -548,8 +551,8 @@ export default async function renderSupplierDetail(container, params = {}) {
         <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
           <div>
             <span style="color:var(--text-muted);font-size:0.75rem">Closing Khata Balance</span>
-            <div style="font-size:1.4rem;font-weight:800;color:${runningBalance > 0 ? 'var(--danger)' : 'var(--success)'};font-family:var(--font-mono)">
-              ${formatCurrency(runningBalance)}
+            <div style="font-size:1.4rem;font-weight:800;color:${runningBalance > 0 ? 'var(--danger)' : (runningBalance < 0 ? 'var(--success)' : 'var(--text-primary)')};font-family:var(--font-mono)">
+              ${runningBalance < 0 ? `${formatCurrency(Math.abs(runningBalance))} (Advance Credit)` : (runningBalance > 0 ? `${formatCurrency(runningBalance)} (Due Payable)` : '₹0.00 (Nil)')}
             </div>
           </div>
           <div style="text-align:right">
@@ -576,7 +579,7 @@ export default async function renderSupplierDetail(container, params = {}) {
                 <tr>
                   <td style="font-size:0.85rem">${formatDate(r.date)}</td>
                   <td>
-                    <span class="badge ${r.type === 'INVOICE' ? 'badge-primary' : 'badge-success'}">${r.type}</span>
+                    <span class="badge ${r.type === 'INVOICE' ? 'badge-primary' : (r.type === 'ADVANCE' ? 'badge-info' : 'badge-success')}">${r.type}</span>
                   </td>
                   <td><code style="font-family:var(--font-mono)">${r.ref || '—'}</code></td>
                   <td style="font-size:0.85rem">${r.description}</td>
@@ -586,8 +589,8 @@ export default async function renderSupplierDetail(container, params = {}) {
                   <td style="text-align:right;font-weight:600;color:var(--success)">
                     ${r.credit > 0 ? formatCurrency(r.credit) : '—'}
                   </td>
-                  <td style="text-align:right;font-weight:700;font-family:var(--font-mono);color:${r.balance > 0 ? 'var(--danger)' : 'var(--success)'}">
-                    ${formatCurrency(r.balance)}
+                  <td style="text-align:right;font-weight:700;font-family:var(--font-mono);color:${r.balance > 0 ? 'var(--danger)' : (r.balance < 0 ? 'var(--success)' : 'var(--text-muted)')}">
+                    ${r.balance < 0 ? `${formatCurrency(Math.abs(r.balance))} (Cr)` : formatCurrency(r.balance)}
                   </td>
                 </tr>
               `).join('')}
@@ -709,6 +712,7 @@ export function openSettleSupplierDuesModal(supplier, currentBalance, onSuccess)
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Payment Amount to Disburse (₹) *</label>
           <input type="number" id="settleSupAmountInput" class="form-control" value="${currentBalance > 0 ? currentBalance.toFixed(2) : '0.00'}" min="0.01" step="0.01" style="font-size:1.15rem;font-weight:bold" />
+          <div id="settleSupAdvanceFeedback" style="font-size:0.8rem;margin-top:6px;display:none"></div>
         </div>
 
         <div class="form-group" style="margin-bottom:0">
@@ -770,7 +774,12 @@ export function openSettleSupplierDuesModal(supplier, currentBalance, onSuccess)
             });
 
             if (resp?.success) {
-              showToast(`Disbursement of ${formatCurrency(amt)} recorded for ${supplier.name}!`, 'success');
+              const curDue = Math.max(0, currentBalance);
+              const advancePortion = amt > curDue ? (amt - curDue) : 0;
+              const msg = advancePortion > 0
+                ? `Disbursement of ${formatCurrency(amt)} recorded (${curDue > 0 ? 'Dues cleared + ' : ''}${formatCurrency(advancePortion)} Advance Credit added to Khata)!`
+                : `Disbursement of ${formatCurrency(amt)} recorded for ${supplier.name}!`;
+              showToast(msg, 'success');
               modal.close();
               if (typeof onSuccess === 'function') onSuccess();
             } else {
@@ -786,6 +795,23 @@ export function openSettleSupplierDuesModal(supplier, currentBalance, onSuccess)
   });
 
   const modalEl = modal.element || modal.el || document.querySelector('.modal-overlay:last-child');
+  const amtInp = modalEl?.querySelector('#settleSupAmountInput');
+  const fback = modalEl?.querySelector('#settleSupAdvanceFeedback');
+  const updateSettleFeedback = () => {
+    const amt = parseFloat(amtInp?.value) || 0;
+    const curDue = Math.max(0, currentBalance);
+    if (amt > curDue && fback) {
+      fback.style.display = 'block';
+      fback.style.color = 'var(--success)';
+      const advancePortion = amt - curDue;
+      fback.innerHTML = `ℹ️ <strong>Advance Credit:</strong> ${curDue > 0 ? formatCurrency(curDue) + ' will clear current dues, and ' : ''}<strong>${formatCurrency(advancePortion)}</strong> will be credited as an Advance on ${supplier.name}'s Khata.`;
+    } else if (fback) {
+      fback.style.display = 'none';
+    }
+  };
+  amtInp?.addEventListener('input', updateSettleFeedback);
+  updateSettleFeedback();
+
   modalEl?.querySelectorAll('.settle-sup-mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedMode = btn.dataset.mode;
@@ -823,7 +849,8 @@ export function openPayPoModal(po, currentDue, supplier, onSuccess) {
 
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Payment Amount to Disburse (₹) *</label>
-          <input type="number" id="payPoAmountInput" class="form-control" value="${currentDue.toFixed(2)}" min="0.01" max="${currentDue.toFixed(2)}" step="0.01" style="font-size:1.15rem;font-weight:bold" />
+          <input type="number" id="payPoAmountInput" class="form-control" value="${currentDue.toFixed(2)}" min="0.01" step="0.01" style="font-size:1.15rem;font-weight:bold" />
+          <div id="payPoAdvanceFeedback" style="font-size:0.8rem;margin-top:6px;display:none"></div>
         </div>
 
         <div class="form-group" style="margin-bottom:0">
@@ -865,10 +892,6 @@ export function openPayPoModal(po, currentDue, supplier, onSuccess) {
             showToast('Please enter a valid disbursement amount greater than ₹0', 'error');
             return;
           }
-          if (amt > currentDue) {
-            showToast(`Amount cannot exceed remaining bill due of ${formatCurrency(currentDue)}`, 'error');
-            return;
-          }
 
           const ref = (modalEl?.querySelector('#payPoTxnRef') || document.getElementById('payPoTxnRef'))?.value.trim() || null;
           const notes = (modalEl?.querySelector('#payPoNotes') || document.getElementById('payPoNotes'))?.value.trim() || null;
@@ -889,7 +912,12 @@ export function openPayPoModal(po, currentDue, supplier, onSuccess) {
             });
 
             if (resp?.success) {
-              showToast(`Payment of ${formatCurrency(amt)} recorded for Invoice #${po.invoiceNumber}!`, 'success');
+              const excess = amt > currentDue ? (amt - currentDue) : 0;
+              const supName = po.supplierName || supplier?.name || 'Distributor';
+              const msg = excess > 0
+                ? `Payment of ${formatCurrency(amt)} recorded (Invoice #${po.invoiceNumber} cleared + ${formatCurrency(excess)} Advance Credit added to Khata)!`
+                : `Payment of ${formatCurrency(amt)} recorded for Invoice #${po.invoiceNumber}!`;
+              showToast(msg, 'success');
               modal.close();
               if (typeof onSuccess === 'function') onSuccess();
             } else {
@@ -905,6 +933,23 @@ export function openPayPoModal(po, currentDue, supplier, onSuccess) {
   });
 
   const modalEl = modal.element || modal.el || document.querySelector('.modal-overlay:last-child');
+  const amtInp = modalEl?.querySelector('#payPoAmountInput');
+  const fback = modalEl?.querySelector('#payPoAdvanceFeedback');
+  const updatePayPoFeedback = () => {
+    const amt = parseFloat(amtInp?.value) || 0;
+    if (amt > currentDue && fback) {
+      fback.style.display = 'block';
+      fback.style.color = 'var(--success)';
+      const excess = amt - currentDue;
+      const supName = po.supplierName || supplier?.name || 'Distributor';
+      fback.innerHTML = `ℹ️ <strong>Advance Credit:</strong> ${formatCurrency(currentDue)} will clear this invoice, and <strong>${formatCurrency(excess)}</strong> will be credited as an Advance on ${supName}'s Khata.`;
+    } else if (fback) {
+      fback.style.display = 'none';
+    }
+  };
+  amtInp?.addEventListener('input', updatePayPoFeedback);
+  updatePayPoFeedback();
+
   modalEl?.querySelectorAll('.pay-po-mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedMode = btn.dataset.mode;

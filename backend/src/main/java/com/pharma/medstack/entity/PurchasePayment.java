@@ -25,7 +25,7 @@ public class PurchasePayment extends AuditableEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "purchase_order_id", nullable = false)
+    @JoinColumn(name = "purchase_order_id", nullable = true)
     private PurchaseOrder purchaseOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)

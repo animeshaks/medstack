@@ -75,9 +75,12 @@ export default function renderSuppliers(container) {
         {
           key: 'outstandingBalance',
           label: 'Khata Due',
-          render: (val) => (Number(val) || 0) > 0
-            ? `<span class="badge badge-danger">Due: ${formatCurrency(val)}</span>`
-            : `<span class="badge badge-secondary" style="color:var(--text-muted)">₹0.00</span>`
+          render: (val) => {
+            const num = Number(val) || 0;
+            if (num > 0) return `<span class="badge badge-danger">Due: ${formatCurrency(num)}</span>`;
+            if (num < 0) return `<span class="badge badge-success">Advance: ${formatCurrency(Math.abs(num))}</span>`;
+            return `<span class="badge badge-secondary" style="color:var(--text-muted)">₹0.00</span>`;
+          }
         }
       ];
 

@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -394,19 +395,35 @@ public class BillService {
             throw new InvalidBillException("Bill has no remaining balance due");
         }
 
-        BigDecimal paymentAmount = request.amount();
-        if (paymentAmount.compareTo(currentDue) > 0) {
-            paymentAmount = currentDue; // Cap to remaining due
+        BigDecimal requestedAmount = request.amount();
+        if (requestedAmount == null || requestedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidBillException("Payment amount must be greater than zero");
         }
+
+        BigDecimal paymentForBill = requestedAmount.min(currentDue);
+        BigDecimal excessAdvance = requestedAmount.subtract(paymentForBill);
 
         Payment payment = Payment.builder()
                 .salesOrder(salesOrder)
+                .customer(salesOrder.getCustomer())
                 .paymentMethod(request.paymentMethod())
-                .amount(paymentAmount.setScale(2, RoundingMode.HALF_UP))
+                .amount(paymentForBill.setScale(2, RoundingMode.HALF_UP))
                 .transactionRef(request.transactionRef())
                 .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
                 .build();
         payment = paymentRepository.save(payment);
+
+        if (excessAdvance.compareTo(BigDecimal.ZERO) > 0 && salesOrder.getCustomer() != null) {
+            Payment advancePayment = Payment.builder()
+                    .salesOrder(null)
+                    .customer(salesOrder.getCustomer())
+                    .paymentMethod(request.paymentMethod())
+                    .amount(excessAdvance.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .build();
+            paymentRepository.save(advancePayment);
+        }
 
         List<Payment> allPayments = new ArrayList<>(existingPayments);
         allPayments.add(payment);
@@ -422,17 +439,16 @@ public class BillService {
         }
         salesOrderRepository.save(salesOrder);
 
-        // Reduce customer outstanding balance
+        // Reduce customer outstanding balance by entire received payment
         Customer customer = salesOrder.getCustomer();
         if (customer != null) {
             BigDecimal currentBal = customer.getOutstandingBalance() != null ? customer.getOutstandingBalance() : BigDecimal.ZERO;
-            BigDecimal newBal = currentBal.subtract(paymentAmount);
-            if (newBal.compareTo(BigDecimal.ZERO) < 0) newBal = BigDecimal.ZERO;
+            BigDecimal newBal = currentBal.subtract(requestedAmount);
             customer.setOutstandingBalance(newBal.setScale(2, RoundingMode.HALF_UP));
             customerRepository.save(customer);
         }
 
-        log.info("PAYMENT_RECEIVED billId={} amount={} status={}", orderId, paymentAmount, salesOrder.getPaymentStatus());
+        log.info("PAYMENT_RECEIVED billId={} amount={} status={}", orderId, requestedAmount, salesOrder.getPaymentStatus());
 
         List<SalesOrderItem> items = salesOrderItemRepository.findAllBySalesOrderIdAndIsDeletedFalse(orderId);
         return mapToBillResponse(salesOrder, items, allPayments);
@@ -526,11 +542,31 @@ public class BillService {
         List<SalesOrder> dueOrders = salesOrderRepository.findAllByCustomerIdAndPaymentStatusInAndIsDeletedFalseOrderByCreatedAtAsc(
                 customerId, List.of(PaymentStatus.PENDING, PaymentStatus.PARTIAL));
 
-        if (dueOrders.isEmpty()) {
-            throw new InvalidBillException("Customer has no outstanding bills to settle");
+        BigDecimal remainingPayment = request.amount();
+        if (remainingPayment == null || remainingPayment.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidBillException("Payment amount must be greater than zero");
         }
 
-        BigDecimal remainingPayment = request.amount();
+        if (dueOrders.isEmpty()) {
+            Payment advancePayment = Payment.builder()
+                    .salesOrder(null)
+                    .customer(customer)
+                    .paymentMethod(request.paymentMethod())
+                    .amount(remainingPayment.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .build();
+            paymentRepository.save(advancePayment);
+
+            BigDecimal currentBal = customer.getOutstandingBalance() != null ? customer.getOutstandingBalance() : BigDecimal.ZERO;
+            BigDecimal newBal = currentBal.subtract(remainingPayment);
+            customer.setOutstandingBalance(newBal.setScale(2, RoundingMode.HALF_UP));
+            customerRepository.save(customer);
+
+            log.info("CUSTOMER_ADVANCE_RECORDED customerId={} amount={} newBalance={}", customerId, remainingPayment, newBal);
+            return Collections.emptyList();
+        }
+
         List<BillResponse> settledBills = new ArrayList<>();
 
         for (SalesOrder order : dueOrders) {
@@ -546,6 +582,7 @@ public class BillService {
             BigDecimal allocate = remainingPayment.min(orderDue);
             Payment payment = Payment.builder()
                     .salesOrder(order)
+                    .customer(customer)
                     .paymentMethod(request.paymentMethod())
                     .amount(allocate.setScale(2, RoundingMode.HALF_UP))
                     .transactionRef(request.transactionRef())
@@ -570,15 +607,26 @@ public class BillService {
             settledBills.add(mapToBillResponse(order, items, allPayments));
         }
 
-        BigDecimal totalApplied = request.amount().subtract(remainingPayment);
+        if (remainingPayment.compareTo(BigDecimal.ZERO) > 0) {
+            Payment advancePayment = Payment.builder()
+                    .salesOrder(null)
+                    .customer(customer)
+                    .paymentMethod(request.paymentMethod())
+                    .amount(remainingPayment.setScale(2, RoundingMode.HALF_UP))
+                    .transactionRef(request.transactionRef())
+                    .paymentTime(request.paymentTime() != null ? request.paymentTime() : Instant.now())
+                    .build();
+            paymentRepository.save(advancePayment);
+        }
+
         BigDecimal currentBal = customer.getOutstandingBalance() != null ? customer.getOutstandingBalance() : BigDecimal.ZERO;
-        BigDecimal newBal = currentBal.subtract(totalApplied);
-        if (newBal.compareTo(BigDecimal.ZERO) < 0) newBal = BigDecimal.ZERO;
+        BigDecimal newBal = currentBal.subtract(request.amount());
         customer.setOutstandingBalance(newBal.setScale(2, RoundingMode.HALF_UP));
         customerRepository.save(customer);
 
-        log.info("CUSTOMER_DUES_SETTLED customerId={} applied={} remainingBalance={}",
-                customerId, totalApplied, customer.getOutstandingBalance());
+        BigDecimal totalApplied = request.amount().subtract(remainingPayment);
+        log.info("CUSTOMER_DUES_SETTLED customerId={} applied={} advanceCredit={} remainingBalance={}",
+                customerId, totalApplied, remainingPayment, customer.getOutstandingBalance());
 
         return settledBills;
     }

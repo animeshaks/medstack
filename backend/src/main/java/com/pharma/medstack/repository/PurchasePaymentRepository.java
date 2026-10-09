@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface PurchasePaymentRepository extends JpaRepository<PurchasePayment, UUID> {
     List<PurchasePayment> findAllByPurchaseOrderIdAndIsDeletedFalseOrderByPaymentTimeAsc(UUID purchaseOrderId);
     List<PurchasePayment> findAllBySupplierIdAndIsDeletedFalseOrderByPaymentTimeDesc(UUID supplierId);
+    List<PurchasePayment> findAllBySupplierIdAndPurchaseOrderIsNullAndIsDeletedFalseOrderByPaymentTimeAsc(UUID supplierId);
 }

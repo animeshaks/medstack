@@ -29,4 +29,16 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, UU
 
     List<PurchaseOrder> findAllBySupplierIdAndPaymentStatusInAndIsDeletedFalseOrderByInvoiceDateAscCreatedAtAsc(
             UUID supplierId, List<PaymentStatus> statuses);
+
+    @Query("SELECT COALESCE(p.invoiceDate, CAST(p.createdAt AS LocalDate)) as poDate, " +
+           "SUM(p.totalAmount) as total, COUNT(p) as cnt, " +
+           "SUM(p.taxAmount) as tax, SUM(p.paidAmount) as paid, SUM(p.dueAmount) as due " +
+           "FROM PurchaseOrder p " +
+           "WHERE p.isDeleted = false " +
+           "AND COALESCE(p.invoiceDate, CAST(p.createdAt AS LocalDate)) BETWEEN :from AND :to " +
+           "GROUP BY COALESCE(p.invoiceDate, CAST(p.createdAt AS LocalDate)) " +
+           "ORDER BY COALESCE(p.invoiceDate, CAST(p.createdAt AS LocalDate)) ASC")
+    List<Object[]> purchasesByDateRange(
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDate from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDate to);
 }

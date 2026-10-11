@@ -71,39 +71,40 @@ export default function renderUsers(container) {
         { key: 'createdAt', label: 'Created', render: (val) => formatDate(val) }
       ];
 
-      const actions = [
-        {
+      const actions = [];
+      if (currentUser?.role === 'ADMIN') {
+        actions.push({
           label: 'Edit',
           class: 'btn-secondary',
           icon: '✏️ Edit',
           onClick: (usr) => openEditModal(usr)
-        },
-        {
-          label: 'Delete',
-          class: 'btn-danger',
-          icon: '🗑️',
-          onClick: async (usr) => {
-            if (usr.username === currentUser?.username) {
-              showToast('You cannot delete your own active account', 'warning');
-              return;
-            }
-            const ok = await confirm(`Are you sure you want to delete user account "${usr.username}"?`, { danger: true });
-            if (ok) {
-              try {
-                const delResp = await userService.delete(usr.id);
-                if (delResp?.success) {
-                  showToast('User deleted', 'success');
-                  loadData(currentPage, currentSearch);
-                } else {
-                  showToast(delResp?.message || 'Delete failed', 'error');
-                }
-              } catch (e) {
-                showToast(e.message || 'Error deleting user', 'error');
+        });
+      }
+      actions.push({
+        label: 'Delete',
+        class: 'btn-danger',
+        icon: '🗑️',
+        onClick: async (usr) => {
+          if (usr.username === currentUser?.username) {
+            showToast('You cannot delete your own active account', 'warning');
+            return;
+          }
+          const ok = await confirm(`Are you sure you want to delete user account "${usr.username}"?`, { danger: true });
+          if (ok) {
+            try {
+              const delResp = await userService.delete(usr.id);
+              if (delResp?.success) {
+                showToast('User deleted', 'success');
+                loadData(currentPage, currentSearch);
+              } else {
+                showToast(delResp?.message || 'Delete failed', 'error');
               }
+            } catch (e) {
+              showToast(e.message || 'Error deleting user', 'error');
             }
           }
         }
-      ];
+      });
 
       renderTable(tableContainer, columns, content, { actions });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage, currentSearch));
@@ -115,19 +116,19 @@ export default function renderUsers(container) {
 
   const openAddModal = () => {
     const fields = [
-      { name: 'username', label: 'Username', required: true, placeholder: 'john_doe' },
-      { name: 'password', label: 'Password', type: 'password', required: true, placeholder: '••••••••' },
-      { name: 'fullName', label: 'Full Name', required: true, placeholder: 'John Doe' },
-      { name: 'email', label: 'Email Address', type: 'email', required: true },
-      { name: 'phone', label: 'Phone Number' },
       {
         name: 'role', label: 'Role', type: 'select', required: true,
         options: [
-          { value: 'ADMIN', label: 'ADMIN — Full system access' },
-          { value: 'OWNER', label: 'OWNER — Store manager' },
-          { value: 'STAFF', label: 'STAFF — POS cashier' }
+          { value: 'STAFF', label: 'STAFF — POS cashier & sales' },
+          { value: 'OWNER', label: 'OWNER — Store manager & inventory' },
+          { value: 'ADMIN', label: 'ADMIN — Full system administrator' }
         ]
       },
+      { name: 'fullName', label: 'Full Name', required: true, placeholder: 'e.g. Rahul Sharma' },
+      { name: 'username', label: 'Username', required: true, placeholder: 'e.g. staff_rahul' },
+      { name: 'password', label: 'Password', type: 'password', required: true, placeholder: '••••••••' },
+      { name: 'email', label: 'Email Address', type: 'email', required: true, placeholder: 'user@example.com' },
+      { name: 'phone', label: 'Phone Number', placeholder: '9876543210' },
       {
         name: 'status', label: 'Status', type: 'select', required: true,
         options: [
@@ -137,7 +138,18 @@ export default function renderUsers(container) {
       }
     ];
 
-    const formHtml = `<form id="addUserForm">${buildFormHtml(fields, { role: 'STAFF', status: 'ACTIVE' })}</form>`;
+    const formHtml = `
+      <form id="addUserForm">
+        ${buildFormHtml(fields, { role: 'STAFF', status: 'ACTIVE' })}
+        <div style="margin-top:-6px;margin-bottom:12px">
+          <button type="button" id="btnSuggestUsername" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:3px 8px">
+            ✨ Suggest Easy Username
+          </button>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px">(Generates role-based memorable name)</span>
+        </div>
+      </form>
+    `;
+
     const modal = showModal({
       title: 'Create New User Account',
       body: formHtml,
@@ -167,10 +179,46 @@ export default function renderUsers(container) {
         }
       ]
     });
+
+    // Wire username auto-suggest button
+    const formEl = document.querySelector('#addUserForm');
+    const suggestBtn = formEl?.querySelector('#btnSuggestUsername');
+    const usernameInput = formEl?.querySelector('input[name="username"]');
+    const fullNameInput = formEl?.querySelector('input[name="fullName"]');
+    const roleSelect = formEl?.querySelector('select[name="role"]');
+
+    const fetchSuggestion = async () => {
+      const role = roleSelect?.value || 'STAFF';
+      const fullName = fullNameInput?.value?.trim() || '';
+      try {
+        const res = await userService.suggestUsername(role, fullName);
+        if (res?.success && res.data?.username && usernameInput) {
+          usernameInput.value = res.data.username;
+        }
+      } catch (err) {
+        console.warn('Failed to suggest username', err);
+      }
+    };
+
+    suggestBtn?.addEventListener('click', fetchSuggestion);
+
+    // Auto-suggest when full name input changes if username is empty
+    fullNameInput?.addEventListener('blur', () => {
+      if (usernameInput && (!usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_'))) {
+        fetchSuggestion();
+      }
+    });
+
+    roleSelect?.addEventListener('change', () => {
+      if (usernameInput && (!usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_'))) {
+        fetchSuggestion();
+      }
+    });
   };
 
   const openEditModal = (usr) => {
     const fields = [
+      { name: 'username', label: 'Username (Admin Editable)', required: true },
       { name: 'fullName', label: 'Full Name', required: true },
       { name: 'email', label: 'Email Address', type: 'email', required: true },
       { name: 'phone', label: 'Phone Number' },
@@ -191,7 +239,12 @@ export default function renderUsers(container) {
       }
     ];
 
-    const formHtml = `<form id="editUserForm">${buildFormHtml(fields, usr)}</form>`;
+    const formHtml = `
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:var(--radius)">
+        🛡️ <strong>Admin Privilege:</strong> Only administrators can modify user names, security roles, and user account credentials.
+      </div>
+      <form id="editUserForm">${buildFormHtml(fields, usr)}</form>
+    `;
     const modal = showModal({
       title: `Edit User: ${usr.username}`,
       body: formHtml,

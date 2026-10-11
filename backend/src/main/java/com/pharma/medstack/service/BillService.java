@@ -325,6 +325,11 @@ public class BillService {
 
     @Transactional(readOnly = true)
     public Page<BillResponse> getAllBills(String search, UUID customerId, UUID userId, Instant startDate, Instant endDate, PaymentStatus paymentStatus, Boolean dueOnly, Pageable pageable) {
+        return getAllBills(search, customerId, userId, startDate, endDate, paymentStatus, dueOnly, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BillResponse> getAllBills(String search, UUID customerId, UUID userId, Instant startDate, Instant endDate, PaymentStatus paymentStatus, Boolean dueOnly, Boolean rxRequiredOnly, Pageable pageable) {
         Specification<SalesOrder> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.get("isDeleted")));
@@ -345,6 +350,17 @@ public class BillService {
                 predicates.add(root.get("paymentStatus").in(PaymentStatus.PENDING, PaymentStatus.PARTIAL));
             } else if (paymentStatus != null) {
                 predicates.add(cb.equal(root.get("paymentStatus"), paymentStatus));
+            }
+            if (Boolean.TRUE.equals(rxRequiredOnly)) {
+                jakarta.persistence.criteria.Subquery<UUID> subquery = query.subquery(UUID.class);
+                jakarta.persistence.criteria.Root<SalesOrderItem> itemRoot = subquery.from(SalesOrderItem.class);
+                subquery.select(itemRoot.get("salesOrder").get("id"))
+                        .where(
+                            cb.isFalse(itemRoot.get("isDeleted")),
+                            cb.isTrue(itemRoot.get("inventoryBatch").get("medicine").get("requiresPrescription")),
+                            cb.equal(itemRoot.get("salesOrder").get("id"), root.get("id"))
+                        );
+                predicates.add(cb.exists(subquery));
             }
             if (search != null && !search.trim().isEmpty()) {
                 String pattern = "%" + search.trim().toLowerCase() + "%";
@@ -876,7 +892,8 @@ public class BillService {
                 i.getTaxRate(),
                 i.getSubtotal(),
                 i.getDispenseUnit(),
-                i.getPackSize()
+                i.getPackSize(),
+                i.getInventoryBatch().getMedicine().isRequiresPrescription()
         )).collect(Collectors.toList());
 
         List<PaymentResponse> paymentResponses = payments.stream().map(p -> new PaymentResponse(
@@ -891,6 +908,8 @@ public class BillService {
                 : (so.getCustomerName() != null && !so.getCustomerName().isBlank() ? so.getCustomerName() : "Walk-in Customer");
         String custPhone = so.getCustomer() != null ? so.getCustomer().getPhone() 
                 : (so.getCustomerPhone() != null ? so.getCustomerPhone() : "-");
+
+        boolean hasRxItems = (so.getPrescribingDoctor() != null) || itemResponses.stream().anyMatch(BillItemResponse::rxRequired);
 
         return new BillResponse(
                 so.getId(),
@@ -907,6 +926,8 @@ public class BillService {
                 so.getDiscountAmount(),
                 so.getTaxAmount(),
                 so.getGrandTotal(),
+                null,
+                null,
                 so.getPaymentStatus(),
                 so.getOrderStatus(),
                 paymentResponses,
@@ -918,7 +939,8 @@ public class BillService {
                 so.getStorePhone(),
                 so.getStoreEmail(),
                 so.getStoreGstin(),
-                so.getStoreDlNumber()
+                so.getStoreDlNumber(),
+                hasRxItems
         );
     }
 }

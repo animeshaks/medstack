@@ -40,9 +40,10 @@ public class BillController {
             @RequestParam(required = false) Instant endDate,
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) Boolean dueOnly,
+            @RequestParam(required = false) Boolean rxRequiredOnly,
             Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(
-                billService.getAllBills(search, customerId, userId, startDate, endDate, paymentStatus, dueOnly, pageable),
+                billService.getAllBills(search, customerId, userId, startDate, endDate, paymentStatus, dueOnly, rxRequiredOnly, pageable),
                 "Bills fetched successfully", 200));
     }
 

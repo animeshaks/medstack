@@ -4,6 +4,7 @@ import { initRouter, navigate, registerRoute } from './router.js';
 import { getState, setState } from './state.js';
 import { showToast } from './components/toast.js';
 import { buildSidebarNav } from './components/sidebar.js';
+import { openProfileModal } from './components/profileModal.js';
 
 // Static page imports — guaranteed reliable resolution & zero latency
 import renderDashboard from './pages/dashboard.js';
@@ -50,7 +51,8 @@ themeBtn?.addEventListener('click', () => {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 });
 
-// ── User display ──────────────────────────────────────────────────────────────
+// ── User display & Profile Modal ──────────────────────────────────────────────
+const navbarUserEl = document.getElementById('navbarUser');
 const userNameEl = document.getElementById('userNameDisplay');
 const userRoleEl = document.getElementById('userRoleBadge');
 if (userNameEl) userNameEl.textContent = user?.username || '';
@@ -58,6 +60,9 @@ if (userRoleEl) {
   userRoleEl.textContent = user?.role || '';
   userRoleEl.className = `user-badge role-${(user?.role || '').toLowerCase()}`;
 }
+navbarUserEl?.addEventListener('click', () => {
+  openProfileModal();
+});
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 document.getElementById('logoutBtn')?.addEventListener('click', () => {

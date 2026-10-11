@@ -10,4 +10,11 @@ export const userService = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+  getMe: () => api.get('/users/me'),
+  updateMe: (data) => api.put('/users/me', data),
+  changePassword: (data) => api.put('/users/me/password', data),
+  suggestUsername: (role = 'STAFF', fullName = '') => {
+    const fnParam = fullName ? `&fullName=${encodeURIComponent(fullName)}` : '';
+    return api.get(`/users/suggest-username?role=${encodeURIComponent(role)}${fnParam}`);
+  },
 };

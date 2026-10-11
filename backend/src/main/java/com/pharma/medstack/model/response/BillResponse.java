@@ -35,7 +35,8 @@ public record BillResponse(
     String storePhone,
     String storeEmail,
     String storeGstin,
-    String storeDlNumber
+    String storeDlNumber,
+    boolean rxRequired
 ) {
     public BillResponse {
         if (paidAmount == null) {
@@ -58,7 +59,7 @@ public record BillResponse(
                         String storePhone, String storeEmail, String storeGstin, String storeDlNumber) {
         this(id, billNumber, customerId, customerName, customerPhone, prescribingDoctorId, prescribingDoctorName,
              userId, createdBy, items, totalAmount, discountAmount, taxAmount, grandTotal, null, null, paymentStatus,
-             orderStatus, payments, earnedPoints, redeemedPoints, createdAt, storeName, storeAddress, storePhone, storeEmail, storeGstin, storeDlNumber);
+             orderStatus, payments, earnedPoints, redeemedPoints, createdAt, storeName, storeAddress, storePhone, storeEmail, storeGstin, storeDlNumber, false);
     }
 
     public BillResponse(UUID id, String billNumber, UUID customerId, String customerName, String customerPhone,
@@ -68,8 +69,8 @@ public record BillResponse(
                         OrderStatus orderStatus, List<PaymentResponse> payments, int earnedPoints,
                         int redeemedPoints, Instant createdAt) {
         this(id, billNumber, customerId, customerName, customerPhone, prescribingDoctorId, prescribingDoctorName,
-             userId, createdBy, items, totalAmount, discountAmount, taxAmount, grandTotal, paymentStatus,
-             orderStatus, payments, earnedPoints, redeemedPoints, createdAt, null, null, null, null, null, null);
+             userId, createdBy, items, totalAmount, discountAmount, taxAmount, grandTotal, null, null, paymentStatus,
+             orderStatus, payments, earnedPoints, redeemedPoints, createdAt, null, null, null, null, null, null, false);
     }
 
     public BillResponse(UUID id, String billNumber, UUID customerId, String customerName, String customerPhone,
@@ -78,7 +79,7 @@ public record BillResponse(
                         BigDecimal taxAmount, BigDecimal grandTotal, PaymentStatus paymentStatus,
                         OrderStatus orderStatus, List<PaymentResponse> payments, Instant createdAt) {
         this(id, billNumber, customerId, customerName, customerPhone, prescribingDoctorId, prescribingDoctorName,
-             userId, createdBy, items, totalAmount, discountAmount, taxAmount, grandTotal, paymentStatus,
-             orderStatus, payments, 0, 0, createdAt, null, null, null, null, null, null);
+             userId, createdBy, items, totalAmount, discountAmount, taxAmount, grandTotal, null, null, paymentStatus,
+             orderStatus, payments, 0, 0, createdAt, null, null, null, null, null, null, false);
     }
 }

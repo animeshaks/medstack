@@ -1,10 +1,6 @@
 package com.pharma.medstack.controller;
 
-import com.pharma.medstack.model.response.ApiResponse;
-import com.pharma.medstack.model.response.DashboardKpiResponse;
-import com.pharma.medstack.model.response.InventoryBatchResponse;
-import com.pharma.medstack.model.response.InventoryReportResponse;
-import com.pharma.medstack.model.response.SalesReportResponse;
+import com.pharma.medstack.model.response.*;
 import com.pharma.medstack.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +27,27 @@ public class ReportController {
     public ResponseEntity<ApiResponse<List<SalesReportResponse>>> getSalesReport(
             @RequestParam LocalDate from, @RequestParam LocalDate to) {
         return ResponseEntity.ok(ApiResponse.success(reportService.getSalesReport(from, to), "Sales report fetched", 200));
+    }
+
+    @GetMapping("/purchases")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    public ResponseEntity<ApiResponse<List<PurchaseReportResponse>>> getPurchasesReport(
+            @RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getPurchasesReport(from, to), "Purchases report fetched", 200));
+    }
+
+    @GetMapping("/expenses")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    public ResponseEntity<ApiResponse<List<ExpenseReportResponse>>> getExpensesReport(
+            @RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getExpensesReport(from, to), "Expenses report fetched", 200));
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    public ResponseEntity<ApiResponse<FinancialSummaryReportResponse>> getFinancialSummary(
+            @RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getFinancialSummary(from, to), "Financial summary fetched", 200));
     }
 
     @GetMapping("/inventory")

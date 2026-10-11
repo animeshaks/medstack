@@ -25,4 +25,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID>, JpaSpec
     @Query("SELECT SUM(e.amount) FROM Expense e WHERE e.isDeleted = false " +
            "AND e.expenseDate BETWEEN :from AND :to")
     BigDecimal sumByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("SELECT e.expenseDate as expDate, " +
+           "e.category as category, " +
+           "SUM(e.amount) as total, COUNT(e) as cnt " +
+           "FROM Expense e " +
+           "WHERE e.isDeleted = false " +
+           "AND e.expenseDate BETWEEN :from AND :to " +
+           "GROUP BY e.expenseDate, e.category " +
+           "ORDER BY e.expenseDate ASC")
+    List<Object[]> expensesByDateRangeAndCategory(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

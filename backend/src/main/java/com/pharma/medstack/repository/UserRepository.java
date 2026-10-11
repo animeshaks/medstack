@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsernameAndIsDeletedFalse(String username);
     boolean existsByUsernameAndIsDeletedFalse(String username);
+    boolean existsByUsernameAndIdNotAndIsDeletedFalse(String username, UUID id);
     Page<User> findAllByIsDeletedFalse(Pageable pageable);
     Optional<User> findByIdAndIsDeletedFalse(UUID id);
 }

@@ -1,5 +1,8 @@
 package com.pharma.medstack.controller;
 
+import com.pharma.medstack.entity.Role;
+import com.pharma.medstack.model.request.ChangePasswordRequest;
+import com.pharma.medstack.model.request.UserProfileUpdateRequest;
 import com.pharma.medstack.model.request.UserRequest;
 import com.pharma.medstack.model.request.UserUpdateRequest;
 import com.pharma.medstack.model.response.ApiResponse;
@@ -11,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -24,6 +28,40 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<UserResponse> getCurrentUser(Authentication authentication) {
+        UserResponse response = userService.getCurrentUserProfile(authentication.getName());
+        return ApiResponse.success(response, "Profile retrieved successfully", 200);
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<UserResponse> updateCurrentUserProfile(
+            Authentication authentication,
+            @Valid @RequestBody UserProfileUpdateRequest request) {
+        UserResponse response = userService.updateCurrentUserProfile(authentication.getName(), request);
+        return ApiResponse.success(response, "Profile updated successfully", 200);
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<Void> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(authentication.getName(), request);
+        return ApiResponse.success(null, "Password updated successfully", 200);
+    }
+
+    @GetMapping("/suggest-username")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    public ApiResponse<String> suggestUsername(
+            @RequestParam(required = false, defaultValue = "STAFF") Role role,
+            @RequestParam(required = false, defaultValue = "") String name) {
+        String suggestion = userService.suggestUsername(role, name);
+        return ApiResponse.success(suggestion, "Username suggestion generated", 200);
     }
 
     @GetMapping
@@ -51,7 +89,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<UserResponse> updateUser(
             @PathVariable UUID id,
             @Valid @RequestBody UserUpdateRequest request) {

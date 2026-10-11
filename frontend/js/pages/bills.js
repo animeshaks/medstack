@@ -19,6 +19,7 @@ export default async function renderBills(container) {
   let selectedPaymentStatus = '';
   let startDate = '';
   let endDate = '';
+  let rxRequiredOnly = false;
   const pageSize = 15;
 
   container.innerHTML = `
@@ -59,6 +60,12 @@ export default async function renderBills(container) {
           </select>
         </div>
 
+        <!-- Filter by Rx Required -->
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;font-weight:600;padding:5px 10px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border);user-select:none" title="Filter bills containing prescription medicines">
+          <input type="checkbox" id="filterRxRequired" style="cursor:pointer" />
+          <span>⚕️ Rx Only</span>
+        </label>
+
         <!-- Date Range Filters -->
         <div style="display:flex;align-items:center;gap:6px">
           <input type="date" id="filterStartDate" class="form-control" style="font-size:0.8rem;padding:4px 8px;width:auto" title="From Date" />
@@ -81,6 +88,7 @@ export default async function renderBills(container) {
   const custSelect = container.querySelector('#filterCustomerSelect');
   const userSelect = container.querySelector('#filterUserSelect');
   const paySelect = container.querySelector('#filterPaymentStatusSelect');
+  const rxCheck = container.querySelector('#filterRxRequired');
   const startInput = container.querySelector('#filterStartDate');
   const endInput = container.querySelector('#filterEndDate');
   const resetBtn = container.querySelector('#btnResetFilters');
@@ -123,13 +131,23 @@ export default async function renderBills(container) {
         customerId: selectedCustomerId || null,
         userId: selectedUserId || null,
         paymentStatus: selectedPaymentStatus || null,
+        rxRequiredOnly: rxRequiredOnly ? true : null,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : null
       });
       const { content, page: pageMeta } = extractPage(resp);
 
       const columns = [
-        { key: 'billNumber', label: 'Bill #', render: (val) => `<strong style="color:var(--accent);font-family:var(--font-mono)">${val}</strong>` },
+        {
+          key: 'billNumber',
+          label: 'Bill #',
+          render: (val, row) => `
+            <div style="display:flex;align-items:center;gap:6px">
+              <strong style="color:var(--accent);font-family:var(--font-mono)">${val}</strong>
+              ${row.rxRequired ? '<span class="badge badge-warning" style="font-size:0.65rem;padding:2px 5px" title="Prescription Required Medicine Included">⚕️ Rx</span>' : ''}
+            </div>
+          `
+        },
         { key: 'createdAt', label: 'Date & Time', render: (val) => formatDateTime(val) },
         { key: 'customerName', label: 'Customer', render: (val) => `<span style="font-weight:600;color:var(--text-primary)">${val || 'Walk-in Customer'}</span>` },
         { key: 'createdBy', label: 'Cashier', render: (val) => `<span style="color:var(--text-muted);font-size:0.8rem">${val || 'Staff'}</span>` },
@@ -449,6 +467,12 @@ export default async function renderBills(container) {
     loadData(0);
   });
 
+  // Wire Rx Required filter
+  rxCheck?.addEventListener('change', (e) => {
+    rxRequiredOnly = e.target.checked;
+    loadData(0);
+  });
+
   // Wire Reset button
   resetBtn?.addEventListener('click', () => {
     currentSearch = '';
@@ -457,10 +481,12 @@ export default async function renderBills(container) {
     selectedPaymentStatus = '';
     startDate = '';
     endDate = '';
+    rxRequiredOnly = false;
     searchInput.value = '';
     custSelect.value = '';
     userSelect.value = '';
     if (paySelect) paySelect.value = '';
+    if (rxCheck) rxCheck.checked = false;
     startInput.value = '';
     endInput.value = '';
     loadData(0);

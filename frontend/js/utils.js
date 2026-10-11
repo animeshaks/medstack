@@ -264,7 +264,7 @@ export function printInvoice(bill, settings = {}) {
     <tr>
       <td style="text-align:center;width:35px">${idx + 1}</td>
       <td style="font-weight:600">
-        ${it.medicineName || 'Medicine'}
+        ${it.medicineName || 'Medicine'} ${it.rxRequired ? '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 4px;border-radius:3px;font-weight:700;margin-left:4px">Rx</span>' : ''}
       </td>
       <td style="text-align:center">${it.batchNumber || '—'}</td>
       <td style="text-align:center">${it.expiryDate ? formatDate(it.expiryDate) : '—'}</td>

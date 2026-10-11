@@ -61,6 +61,13 @@ export function setToken(token, user) {
   sessionStorage.setItem('ms_user', userJson);
 }
 
+export function updateStoredUser(updatedUser) {
+  _user = { ..._user, ...updatedUser };
+  const userJson = JSON.stringify(_user);
+  if (localStorage.getItem('ms_user')) localStorage.setItem('ms_user', userJson);
+  if (sessionStorage.getItem('ms_user')) sessionStorage.setItem('ms_user', userJson);
+}
+
 export function getUser() {
   if (_user) return _user;
   getToken();

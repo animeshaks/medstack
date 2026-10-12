@@ -139,7 +139,7 @@ export default function renderSuppliers(container) {
         });
       }
 
-      renderTable(tableContainer, columns, content, { actions });
+      renderTable(tableContainer, columns, content, { actions, exportFilename: 'MedStack_Suppliers.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage, currentSearch));
     } catch (err) {
       console.error(err);

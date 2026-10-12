@@ -121,7 +121,7 @@ export default function renderCustomers(container) {
         });
       }
 
-      renderTable(tableContainer, columns, content, { actions });
+      renderTable(tableContainer, columns, content, { actions, exportFilename: 'MedStack_Customers.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage, currentSearch));
     } catch (err) {
       console.error(err);

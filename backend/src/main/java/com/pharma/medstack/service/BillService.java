@@ -354,10 +354,12 @@ public class BillService {
             if (Boolean.TRUE.equals(rxRequiredOnly)) {
                 jakarta.persistence.criteria.Subquery<UUID> subquery = query.subquery(UUID.class);
                 jakarta.persistence.criteria.Root<SalesOrderItem> itemRoot = subquery.from(SalesOrderItem.class);
+                jakarta.persistence.criteria.Join<SalesOrderItem, InventoryBatch> batchJoin = itemRoot.join("inventoryBatch", jakarta.persistence.criteria.JoinType.INNER);
+                jakarta.persistence.criteria.Join<InventoryBatch, Medicine> medJoin = batchJoin.join("medicine", jakarta.persistence.criteria.JoinType.INNER);
                 subquery.select(itemRoot.get("salesOrder").get("id"))
                         .where(
                             cb.isFalse(itemRoot.get("isDeleted")),
-                            cb.isTrue(itemRoot.get("inventoryBatch").get("medicine").get("requiresPrescription")),
+                            cb.isTrue(medJoin.get("requiresPrescription")),
                             cb.equal(itemRoot.get("salesOrder").get("id"), root.get("id"))
                         );
                 predicates.add(cb.exists(subquery));
@@ -909,7 +911,7 @@ public class BillService {
         String custPhone = so.getCustomer() != null ? so.getCustomer().getPhone() 
                 : (so.getCustomerPhone() != null ? so.getCustomerPhone() : "-");
 
-        boolean hasRxItems = (so.getPrescribingDoctor() != null) || itemResponses.stream().anyMatch(BillItemResponse::rxRequired);
+        boolean hasRxItems = itemResponses.stream().anyMatch(BillItemResponse::rxRequired);
 
         return new BillResponse(
                 so.getId(),

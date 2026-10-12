@@ -4,7 +4,7 @@ import { settingsService } from '../services/settingsService.js';
 import { customerService } from '../services/customerService.js';
 import { userService } from '../services/userService.js';
 import { medicineService } from '../services/medicineService.js';
-import { formatCurrency, formatDate, formatDateTime, extractPage, debounce, showLoading, showError, generateWhatsAppUrl, renderInvoiceHtml, printInvoice } from '../utils.js';
+import { formatCurrency, formatDate, formatDateTime, extractPage, debounce, showLoading, showError, generateWhatsAppUrl, renderInvoiceHtml, printInvoice, downloadCsv } from '../utils.js';
 import { renderTable, statusBadge } from '../components/table.js';
 import { renderPagination } from '../components/pagination.js';
 import { showModal } from '../components/modal.js';
@@ -20,12 +20,16 @@ export default async function renderBills(container) {
   let startDate = '';
   let endDate = '';
   let rxRequiredOnly = false;
+  let currentContent = [];
   const pageSize = 15;
 
   container.innerHTML = `
     <div class="page-header">
       <h1 class="page-title">Sales Orders &amp; Bills</h1>
-      <a href="#/pos" class="btn btn-primary">🖥 New POS Bill</a>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-secondary" id="exportBillsBtn">📥 Export CSV</button>
+        <a href="#/pos" class="btn btn-primary">🖥 New POS Bill</a>
+      </div>
     </div>
 
     <div class="card">
@@ -135,7 +139,11 @@ export default async function renderBills(container) {
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : null
       });
-      const { content, page: pageMeta } = extractPage(resp);
+      let { content, page: pageMeta } = extractPage(resp);
+      if (rxRequiredOnly) {
+        content = content.filter(b => Boolean(b.rxRequired));
+      }
+      currentContent = content;
 
       const columns = [
         {
@@ -172,13 +180,30 @@ export default async function renderBills(container) {
         }
       ];
 
-      renderTable(tableContainer, columns, content, { actions });
+      renderTable(tableContainer, columns, content, { actions, exportFilename: 'MedStack_Bills.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage));
     } catch (err) {
       console.error(err);
       showError(tableContainer, 'Error loading bills');
     }
   };
+
+  const exportBtn = container.querySelector('#exportBillsBtn');
+  exportBtn?.addEventListener('click', () => {
+    downloadCsv('MedStack_Bills.csv', [
+      { key: 'billNumber', label: 'Bill #' },
+      { key: 'createdAt', label: 'Date & Time' },
+      { key: 'customerName', label: 'Customer' },
+      { key: 'createdBy', label: 'Cashier' },
+      { key: 'totalAmount', label: 'Subtotal' },
+      { key: 'discountAmount', label: 'Discount' },
+      { key: 'grandTotal', label: 'Grand Total' },
+      { key: 'paidAmount', label: 'Paid' },
+      { key: 'dueAmount', label: 'Due' },
+      { key: 'paymentStatus', label: 'Payment Status' },
+      { key: 'rxRequired', label: 'Rx Required', render: (val) => val ? 'Yes' : 'No' }
+    ], currentContent);
+  });
 
   // ── Open View Bill Modal ───────────────────────────────────────────────────
   const openBillModal = async (initialBill) => {

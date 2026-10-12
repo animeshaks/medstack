@@ -208,7 +208,7 @@ export default function renderExpenses(container) {
         });
       }
 
-      renderTable(tableContainer, columns, content, { actions, defaultSortKey: 'expenseDate', defaultSortDir: 'desc' });
+      renderTable(tableContainer, columns, content, { actions, defaultSortKey: 'expenseDate', defaultSortDir: 'desc', exportFilename: 'MedStack_Expenses.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage));
     } catch (err) {
       console.error(err);

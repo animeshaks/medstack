@@ -16,7 +16,8 @@ import {
   renderInvoiceHtml,
   generateWhatsAppUrl,
   printInvoice,
-  debounce
+  debounce,
+  downloadCsv
 } from '../utils.js';
 import { statusBadge } from '../components/table.js';
 import { showModal, confirm } from '../components/modal.js';
@@ -297,8 +298,11 @@ export default async function renderCustomerDetail(container, params = {}) {
               <input type="date" id="custBillEndDate" class="form-control" style="width:145px;font-size:0.85rem" title="To Date" />
               <button class="btn btn-secondary btn-sm" id="btnResetBillFilters" style="padding:6px 12px">Reset</button>
             </div>
-            <div style="font-size:0.8rem;color:var(--text-muted)" id="custBillCountSummary">
-              Showing ${bills.length} invoices
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="font-size:0.8rem;color:var(--text-muted)" id="custBillCountSummary">
+                Showing ${bills.length} invoices
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnExportCustBills" style="font-size:0.75rem;padding:4px 8px" title="Export Invoices to CSV">📥 Export CSV</button>
             </div>
           </div>
         </div>
@@ -313,8 +317,11 @@ export default async function renderCustomerDetail(container, params = {}) {
         <div class="card" style="padding:16px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <input type="text" id="custMedSearchInput" class="form-control" placeholder="Search medicine name..." style="max-width:280px;font-size:0.85rem" />
-            <div style="font-size:0.8rem;color:var(--text-muted)">
-              Overview of all medications dispensed to this customer
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="font-size:0.8rem;color:var(--text-muted)">
+                Overview of all medications dispensed to this customer
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnExportCustMeds" style="font-size:0.75rem;padding:4px 8px" title="Export Medications to CSV">📥 Export CSV</button>
             </div>
           </div>
         </div>
@@ -495,6 +502,44 @@ export default async function renderCustomerDetail(container, params = {}) {
       renderBillsList();
     });
 
+    container.querySelector('#btnExportCustBills')?.addEventListener('click', () => {
+      const q = (searchInput?.value || '').toLowerCase().trim();
+      const st = statusFilter?.value || 'ALL';
+      const fromDate = startDateInput?.value ? new Date(startDateInput.value) : null;
+      const toDate = endDateInput?.value ? new Date(endDateInput.value + 'T23:59:59') : null;
+
+      const filtered = bills.filter(b => {
+        if (q) {
+          const matchNum = (b.billNumber || '').toLowerCase().includes(q);
+          const matchDoc = (b.prescribingDoctorName || '').toLowerCase().includes(q);
+          if (!matchNum && !matchDoc) return false;
+        }
+        if (st !== 'ALL' && b.paymentStatus !== st) return false;
+        if (fromDate || toDate) {
+          const bDate = new Date(b.createdAt);
+          if (fromDate && bDate < fromDate) return false;
+          if (toDate && bDate > toDate) return false;
+        }
+        return true;
+      });
+
+      const cols = [
+        { key: 'billNumber', label: 'Bill #' },
+        { key: 'createdAt', label: 'Date', render: (val) => formatDateTime(val) },
+        { key: 'prescribingDoctorName', label: 'Prescribing Doctor', render: (val) => val || 'Self / OTC' },
+        { key: 'totalAmount', label: 'Subtotal', render: (val) => formatCurrency(val) },
+        { key: 'discountAmount', label: 'Discount', render: (val) => formatCurrency(val || 0) },
+        { key: 'grandTotal', label: 'Grand Total', render: (val) => formatCurrency(val) },
+        { key: 'paidAmount', label: 'Paid', render: (val, b) => formatCurrency(val != null ? val : (b.paymentStatus === 'PENDING' ? 0 : b.grandTotal)) },
+        { key: 'dueAmount', label: 'Due', render: (val, b) => {
+          const paid = Number(b.paidAmount != null ? b.paidAmount : (b.paymentStatus === 'PENDING' ? 0 : b.grandTotal)) || 0;
+          return formatCurrency(val != null ? val : Math.max(0, (Number(b.grandTotal) || 0) - paid));
+        }},
+        { key: 'paymentStatus', label: 'Payment Status' }
+      ];
+      downloadCsv(`MedStack_${customer.name.replace(/\s+/g, '_')}_Invoices.csv`, cols, filtered);
+    });
+
     renderBillsList();
 
     // ── Tab 2: Render Purchased Medicines & Medication Frequency ──────────────────
@@ -555,6 +600,21 @@ export default async function renderCustomerDetail(container, params = {}) {
     };
 
     medSearchInput?.addEventListener('input', debounce(renderMedsList, 250));
+
+    container.querySelector('#btnExportCustMeds')?.addEventListener('click', () => {
+      const q = (medSearchInput?.value || '').toLowerCase().trim();
+      const filteredMeds = medicineStats.filter(m => !q || m.name.toLowerCase().includes(q));
+      const cols = [
+        { key: 'name', label: 'Medicine Name' },
+        { key: 'timesPurchased', label: 'Orders Frequency', render: (val) => `${val} time(s)` },
+        { key: 'totalQty', label: 'Total Quantity Dispensed', render: (val, m) => `${val} ${m.dispenseUnit}` },
+        { key: 'totalSpent', label: 'Total Amount Spent', render: (val) => formatCurrency(val) },
+        { key: 'lastDate', label: 'Last Purchased Date', render: (val) => formatDateTime(val) },
+        { key: 'lastPrice', label: 'Last Unit Rate', render: (val) => formatCurrency(val) }
+      ];
+      downloadCsv(`MedStack_${customer.name.replace(/\s+/g, '_')}_Medications.csv`, cols, filteredMeds);
+    });
+
     renderMedsList();
 
     // ── Tab 3: Render Dues & Khata Ledger ─────────────────────────────────────────
@@ -593,8 +653,9 @@ export default async function renderCustomerDetail(container, params = {}) {
         </div>
 
         <div class="card">
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem">
-            Pending Invoices Breakdown
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:700;font-size:0.9rem">Pending Invoices Breakdown</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnExportCustDues" style="font-size:0.75rem;padding:4px 8px" title="Export Pending Invoices to CSV">📥 Export CSV</button>
           </div>
           <div class="table-container">
             <table class="data-table">
@@ -654,6 +715,22 @@ export default async function renderCustomerDetail(container, params = {}) {
             renderCustomerDetail(container, params);
           });
         });
+      });
+
+      duesContainer.querySelector('#btnExportCustDues')?.addEventListener('click', () => {
+        const cols = [
+          { key: 'billNumber', label: 'Bill #' },
+          { key: 'createdAt', label: 'Date', render: (val) => formatDateTime(val) },
+          { key: 'prescribingDoctorName', label: 'Prescribing Doctor', render: (val) => val || 'Self / OTC' },
+          { key: 'grandTotal', label: 'Grand Total', render: (val) => formatCurrency(val) },
+          { key: 'paidAmount', label: 'Paid So Far', render: (val, b) => formatCurrency(val != null ? val : (b.paymentStatus === 'PENDING' ? 0 : b.grandTotal)) },
+          { key: 'dueAmount', label: 'Pending Due', render: (val, b) => {
+            const paid = Number(b.paidAmount != null ? b.paidAmount : (b.paymentStatus === 'PENDING' ? 0 : b.grandTotal)) || 0;
+            return formatCurrency(val != null ? val : Math.max(0, (Number(b.grandTotal) || 0) - paid));
+          }},
+          { key: 'paymentStatus', label: 'Status' }
+        ];
+        downloadCsv(`MedStack_${customer.name.replace(/\s+/g, '_')}_Dues.csv`, cols, dueBills);
       });
     };
 

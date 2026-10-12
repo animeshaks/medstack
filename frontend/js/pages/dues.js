@@ -192,7 +192,7 @@ export default function renderDues(container) {
         ` }
       ];
 
-      renderTable(tableContainer, columns, content);
+      renderTable(tableContainer, columns, content, { exportFilename: 'MedStack_Customer_Dues.csv' });
 
       // Wire Settle Due button
       tableContainer.querySelectorAll('.btn-settle-cust').forEach(btn => {
@@ -299,7 +299,7 @@ export default function renderDues(container) {
         }}
       ];
 
-      renderTable(tableContainer, columns, content);
+      renderTable(tableContainer, columns, content, { exportFilename: 'MedStack_Due_Bills.csv' });
 
       // Wire Collect Payment for Bill button
       tableContainer.querySelectorAll('.btn-pay-bill').forEach(btn => {

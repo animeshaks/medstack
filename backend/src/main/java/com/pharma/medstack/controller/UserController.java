@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -57,11 +58,13 @@ public class UserController {
 
     @GetMapping("/suggest-username")
     @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
-    public ApiResponse<String> suggestUsername(
+    public ApiResponse<Map<String, String>> suggestUsername(
             @RequestParam(required = false, defaultValue = "STAFF") Role role,
-            @RequestParam(required = false, defaultValue = "") String name) {
-        String suggestion = userService.suggestUsername(role, name);
-        return ApiResponse.success(suggestion, "Username suggestion generated", 200);
+            @RequestParam(required = false) String fullName,
+            @RequestParam(required = false) String name) {
+        String inputName = (fullName != null && !fullName.isBlank()) ? fullName : (name != null ? name : "");
+        String suggestion = userService.suggestUsername(role, inputName);
+        return ApiResponse.success(Map.of("username", suggestion), "Username suggestion generated", 200);
     }
 
     @GetMapping

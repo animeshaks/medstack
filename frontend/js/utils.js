@@ -28,6 +28,36 @@ export function extractPage(resp) {
   return { content: [], page: null };
 }
 
+export function downloadCsv(filename, columns, rows) {
+  if (!rows || rows.length === 0) {
+    return;
+  }
+  const headers = columns.map(c => `"${String(c.label || c.key).replace(/"/g, '""')}"`);
+  const lines = [headers.join(',')];
+
+  rows.forEach(row => {
+    const values = columns.map(col => {
+      let val = col.render ? col.render(row[col.key], row) : row[col.key];
+      if (val === null || val === undefined) val = '';
+      if (typeof val === 'string') {
+        val = val.replace(/<[^>]*>/g, '').trim();
+      }
+      return `"${String(val).replace(/"/g, '""')}"`;
+    });
+    lines.push(values.join(','));
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function generateWhatsAppUrl(bill, storeSettings = null) {
   const storeName = bill.storeName || storeSettings?.storeName || 'MedStack Pharmacy';
   const customerName = bill.customerName || (bill.customer ? bill.customer.name : 'Walk-in Customer');

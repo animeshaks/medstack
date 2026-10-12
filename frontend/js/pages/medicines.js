@@ -1,6 +1,6 @@
 // js/pages/medicines.js — Medicine Management
 import { medicineService } from '../services/medicineService.js';
-import { formatCurrency, formatDate, extractPage, debounce, buildFormHtml, getFormData, showLoading, showError } from '../utils.js';
+import { formatCurrency, formatDate, extractPage, debounce, buildFormHtml, getFormData, showLoading, showError, downloadCsv } from '../utils.js';
 import { renderTable, badge } from '../components/table.js';
 import { renderPagination } from '../components/pagination.js';
 import { showModal, closeModal, confirm } from '../components/modal.js';
@@ -10,12 +10,16 @@ import { can } from '../permissions.js';
 export default function renderMedicines(container) {
   let currentPage = 0;
   let currentSearch = '';
+  let currentContent = [];
   const pageSize = 15;
 
   container.innerHTML = `
     <div class="page-header">
       <h1 class="page-title">Medicines</h1>
-      ${can('manage_medicines') ? '<button class="btn btn-primary" id="addMedicineBtn">+ Add Medicine</button>' : ''}
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-secondary" id="exportMedicinesBtn">📥 Export CSV</button>
+        ${can('manage_medicines') ? '<button class="btn btn-primary" id="addMedicineBtn">+ Add Medicine</button>' : ''}
+      </div>
     </div>
 
     <div class="card">

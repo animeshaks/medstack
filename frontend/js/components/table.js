@@ -1,4 +1,5 @@
 // js/components/table.js
+import { downloadCsv } from '../utils.js';
 
 /**
  * Render a data table into a container.
@@ -8,7 +9,7 @@
  * @param {object} [opts]
  * @param {Array<{label, class?, onClick}>} [opts.actions] - row action buttons
  */
-export function renderTable(container, columns, rows, { actions = [], onSort = null, defaultSortKey = null, defaultSortDir = 'desc' } = {}) {
+export function renderTable(container, columns, rows, { actions = [], onSort = null, defaultSortKey = null, defaultSortDir = 'desc', exportable = true, exportFilename = 'export.csv' } = {}) {
   if (!rows || rows.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -147,7 +148,17 @@ export function renderTable(container, columns, rows, { actions = [], onSort = n
     sortData(currentSortKey, currentSortDir);
   }
 
+  const exportBarHtml = exportable ? `
+    <div class="table-export-bar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:0 2px">
+      <span style="font-size:0.75rem;color:var(--text-muted)">Showing <strong>${currentRows.length}</strong> record(s)</span>
+      <button type="button" class="btn btn-secondary btn-sm btn-table-export-csv" style="font-size:0.75rem;padding:3px 8px;gap:4px" title="Export this table to CSV">
+        📥 Export CSV
+      </button>
+    </div>
+  ` : '';
+
   container.innerHTML = `
+    ${exportBarHtml}
     <div class="table-container">
       <table class="data-table">
         <thead>${renderHeaderHtml()}</thead>
@@ -156,6 +167,12 @@ export function renderTable(container, columns, rows, { actions = [], onSort = n
     </div>`;
 
   wireEvents();
+
+  if (exportable) {
+    container.querySelector('.btn-table-export-csv')?.addEventListener('click', () => {
+      downloadCsv(exportFilename, columns, currentRows);
+    });
+  }
 }
 
 // Badge helpers

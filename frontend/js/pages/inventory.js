@@ -165,7 +165,7 @@ export default function renderInventory(container) {
         });
       }
 
-      renderTable(tableContainer, columns, content, { actions });
+      renderTable(tableContainer, columns, content, { actions, exportFilename: 'MedStack_Inventory_Batches.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadAllBatches(newPage, currentSearch));
     } catch (err) {
       console.error(err);
@@ -209,7 +209,7 @@ export default function renderInventory(container) {
         }
       ];
 
-      renderTable(tableContainer, columns, items, { actions });
+      renderTable(tableContainer, columns, items, { actions, exportFilename: 'MedStack_Near_Expiry.csv' });
     } catch (e) {
       showError(tableContainer, 'Error loading near-expiry batches');
     }
@@ -250,7 +250,7 @@ export default function renderInventory(container) {
         }
       ];
 
-      renderTable(tableContainer, columns, items, { actions });
+      renderTable(tableContainer, columns, items, { actions, exportFilename: 'MedStack_Expired_Batches.csv' });
     } catch (e) {
       showError(tableContainer, 'Error loading expired batches');
     }
@@ -270,7 +270,7 @@ export default function renderInventory(container) {
         { key: 'currentStock', label: 'Current Total Stock', render: (val) => `<span class="badge badge-danger" style="font-size:0.85rem">${val ?? 0}</span>` }
       ];
 
-      renderTable(tableContainer, columns, items);
+      renderTable(tableContainer, columns, items, { exportFilename: 'MedStack_Low_Stock.csv' });
     } catch (e) {
       showError(tableContainer, 'Error loading low stock items');
     }

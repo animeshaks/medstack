@@ -1,6 +1,6 @@
 // js/pages/users.js — User Management (Admin & Owner)
 import { userService } from '../services/userService.js';
-import { formatDate, extractPage, debounce, buildFormHtml, getFormData, showLoading, showError } from '../utils.js';
+import { formatDate, extractPage, debounce, buildFormHtml, getFormData, showLoading, showError, downloadCsv } from '../utils.js';
 import { renderTable, badge, statusBadge } from '../components/table.js';
 import { renderPagination } from '../components/pagination.js';
 import { showModal, confirm } from '../components/modal.js';
@@ -21,13 +21,17 @@ export default function renderUsers(container) {
 
   let currentPage = 0;
   let currentSearch = '';
+  let currentContent = [];
   const pageSize = 15;
   const currentUser = getUser();
 
   container.innerHTML = `
     <div class="page-header">
       <h1 class="page-title">Users</h1>
-      <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-secondary" id="exportUsersBtn">📥 Export CSV</button>
+        <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+      </div>
     </div>
 
     <div class="card">
@@ -47,6 +51,7 @@ export default function renderUsers(container) {
   const paginationContainer = container.querySelector('#userPagination');
   const searchInput = container.querySelector('#userSearchInput');
   const addBtn = container.querySelector('#addUserBtn');
+  const exportBtn = container.querySelector('#exportUsersBtn');
 
   const loadData = async (page = 0, search = '') => {
     currentPage = page;
@@ -106,13 +111,26 @@ export default function renderUsers(container) {
         }
       });
 
-      renderTable(tableContainer, columns, content, { actions });
+      currentContent = content;
+      renderTable(tableContainer, columns, content, { actions, exportFilename: 'MedStack_Users.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage, currentSearch));
     } catch (err) {
       console.error(err);
       showError(tableContainer, 'Error loading users');
     }
   };
+
+  exportBtn?.addEventListener('click', () => {
+    downloadCsv('MedStack_Users.csv', [
+      { key: 'username', label: 'Username' },
+      { key: 'fullName', label: 'Full Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'role', label: 'Role' },
+      { key: 'status', label: 'Status' },
+      { key: 'createdAt', label: 'Created At' }
+    ], currentContent);
+  });
 
   const openAddModal = () => {
     const fields = [
@@ -181,7 +199,7 @@ export default function renderUsers(container) {
     });
 
     // Wire username auto-suggest button
-    const formEl = document.querySelector('#addUserForm');
+    const formEl = modal?.el?.querySelector('#addUserForm') || document.querySelector('#addUserForm');
     const suggestBtn = formEl?.querySelector('#btnSuggestUsername');
     const usernameInput = formEl?.querySelector('input[name="username"]');
     const fullNameInput = formEl?.querySelector('input[name="fullName"]');
@@ -190,27 +208,37 @@ export default function renderUsers(container) {
     const fetchSuggestion = async () => {
       const role = roleSelect?.value || 'STAFF';
       const fullName = fullNameInput?.value?.trim() || '';
+      if (suggestBtn) suggestBtn.textContent = '⏳ Suggesting...';
       try {
         const res = await userService.suggestUsername(role, fullName);
-        if (res?.success && res.data?.username && usernameInput) {
-          usernameInput.value = res.data.username;
+        const suggested = res?.data?.username || (typeof res?.data === 'string' ? res.data : '');
+        if (suggested && usernameInput) {
+          usernameInput.value = suggested;
         }
       } catch (err) {
         console.warn('Failed to suggest username', err);
+      } finally {
+        if (suggestBtn) suggestBtn.textContent = '✨ Suggest Easy Username';
       }
     };
 
-    suggestBtn?.addEventListener('click', fetchSuggestion);
-
-    // Auto-suggest when full name input changes if username is empty
-    fullNameInput?.addEventListener('blur', () => {
-      if (usernameInput && (!usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_'))) {
-        fetchSuggestion();
-      }
+    suggestBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      fetchSuggestion();
     });
 
+    // Initial suggestion on open
+    fetchSuggestion();
+
+    // Auto-suggest when full name input changes if username is empty or previously generated
+    fullNameInput?.addEventListener('input', debounce(() => {
+      if (!usernameInput || !usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_')) {
+        fetchSuggestion();
+      }
+    }, 400));
+
     roleSelect?.addEventListener('change', () => {
-      if (usernameInput && (!usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_'))) {
+      if (!usernameInput || !usernameInput.value || usernameInput.value.startsWith('staff_') || usernameInput.value.startsWith('admin_') || usernameInput.value.startsWith('owner_')) {
         fetchSuggestion();
       }
     });

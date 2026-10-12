@@ -232,7 +232,7 @@ export default function renderPurchases(container) {
         });
       }
 
-      renderTable(tableContainer, columns, content, { actions, defaultSortKey: 'invoiceDate', defaultSortDir: 'desc' });
+      renderTable(tableContainer, columns, content, { actions, defaultSortKey: 'invoiceDate', defaultSortDir: 'desc', exportFilename: 'MedStack_Purchase_Orders.csv' });
       renderPagination(paginationContainer, pageMeta, (newPage) => loadData(newPage));
     } catch (err) {
       console.error(err);

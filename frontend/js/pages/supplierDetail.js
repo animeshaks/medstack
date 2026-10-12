@@ -10,7 +10,8 @@ import {
   getFormData,
   showLoading,
   showError,
-  debounce
+  debounce,
+  downloadCsv
 } from '../utils.js';
 import { statusBadge } from '../components/table.js';
 import { showModal, confirm } from '../components/modal.js';
@@ -215,20 +216,26 @@ export default async function renderSupplierDetail(container, params = {}) {
           </div>
         </div>
 
-        <div id="supOrderCountSummary" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div id="supOrderCountSummary" style="font-size:0.8rem;color:var(--text-muted)"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnExportSupOrders" style="font-size:0.75rem;padding:4px 8px" title="Export Purchase Orders to CSV">📥 Export CSV</button>
+        </div>
         <div id="supOrdersTableContainer"></div>
       </div>
 
       <!-- Tab 2: Payment Vouchers Content -->
       <div id="supPaymentsSection" class="card" style="display:none;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <div>
             <h3 style="margin:0;font-size:1.05rem;font-weight:700">Payment Vouchers &amp; Disbursements</h3>
             <p style="margin:2px 0 0;font-size:0.8rem;color:var(--text-muted)">Record of all outgoing payments made to ${supplier.name}</p>
           </div>
-          ${outstandingDue > 0 && can('manage_purchases') ? `
-            <button class="btn btn-primary btn-sm" id="btnSettleSupplierDuesTab2">⚡ Record Payment</button>
-          ` : ''}
+          <div style="display:flex;gap:8px;align-items:center">
+            ${outstandingDue > 0 && can('manage_purchases') ? `
+              <button class="btn btn-primary btn-sm" id="btnSettleSupplierDuesTab2">⚡ Record Payment</button>
+            ` : ''}
+            <button type="button" class="btn btn-secondary btn-sm" id="btnExportSupPayments" style="font-size:0.75rem;padding:4px 8px" title="Export Payments to CSV">📥 Export CSV</button>
+          </div>
         </div>
         <div id="supPaymentsTableContainer"></div>
       </div>
@@ -242,6 +249,7 @@ export default async function renderSupplierDetail(container, params = {}) {
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-secondary btn-sm" id="btnPrintKhataStatement">🖨️ Print Statement</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnExportSupKhata" style="font-size:0.75rem;padding:4px 8px" title="Export Khata Statement to CSV">📥 Export CSV</button>
           </div>
         </div>
         <div id="supKhataStatementContainer"></div>
@@ -447,6 +455,41 @@ export default async function renderSupplierDetail(container, params = {}) {
       renderOrdersList();
     });
 
+    container.querySelector('#btnExportSupOrders')?.addEventListener('click', () => {
+      const q = (orderSearchInput?.value || '').toLowerCase().trim();
+      const pFilter = orderPaymentFilter?.value || 'ALL';
+      const sFilter = orderStatusFilter?.value || 'ALL';
+      const fromDate = orderStartDate?.value ? new Date(orderStartDate.value) : null;
+      const toDate = orderEndDate?.value ? new Date(orderEndDate.value + 'T23:59:59') : null;
+
+      const filtered = orders.filter(o => {
+        if (q && !(o.invoiceNumber || '').toLowerCase().includes(q)) return false;
+        if (pFilter !== 'ALL' && o.paymentStatus !== pFilter) return false;
+        if (sFilter !== 'ALL' && o.status !== sFilter) return false;
+        if (fromDate || toDate) {
+          const oDate = new Date(o.invoiceDate || o.createdAt);
+          if (fromDate && oDate < fromDate) return false;
+          if (toDate && oDate > toDate) return false;
+        }
+        return true;
+      });
+
+      const cols = [
+        { key: 'invoiceNumber', label: 'Invoice #' },
+        { key: 'invoiceDate', label: 'Invoice Date', render: (val, o) => formatDate(val || o.createdAt) },
+        { key: 'status', label: 'Stock Status' },
+        { key: 'totalAmount', label: 'Grand Total', render: (val) => formatCurrency(val) },
+        { key: 'paidAmount', label: 'Paid', render: (val, o) => formatCurrency(val != null ? val : (o.paymentStatus === 'PAID' ? o.totalAmount : 0)) },
+        { key: 'dueAmount', label: 'Due', render: (val, o) => {
+          const total = Number(o.totalAmount) || 0;
+          const paid = Number(o.paidAmount != null ? o.paidAmount : (o.paymentStatus === 'PAID' ? total : 0));
+          return formatCurrency(val != null ? val : Math.max(0, total - paid));
+        }},
+        { key: 'paymentStatus', label: 'Payment Status' }
+      ];
+      downloadCsv(`MedStack_${supplier.name.replace(/\s+/g, '_')}_PO_Invoices.csv`, cols, filtered);
+    });
+
     renderOrdersList();
 
     // ── Tab 2: Render Payment Vouchers List ──────────────────────────────────
@@ -501,6 +544,18 @@ export default async function renderSupplierDetail(container, params = {}) {
           </table>
         </div>
       `;
+
+      container.querySelector('#btnExportSupPayments')?.addEventListener('click', () => {
+        const cols = [
+          { key: 'paymentTime', label: 'Date & Time', render: (val, p) => formatDateTime(val || p.createdAt) },
+          { key: 'invoiceNumber', label: 'Against Invoice #' },
+          { key: 'paymentMethod', label: 'Payment Mode', render: (val) => getPaymentModeLabel(val) },
+          { key: 'amount', label: 'Amount Paid', render: (val) => formatCurrency(val) },
+          { key: 'transactionRef', label: 'UTR / Ref #' },
+          { key: 'notes', label: 'Remarks / Notes' }
+        ];
+        downloadCsv(`MedStack_${supplier.name.replace(/\s+/g, '_')}_Payments.csv`, cols, payments);
+      });
     };
 
     // ── Tab 3: Khata Ledger Statement ───────────────────────────────────────
@@ -601,6 +656,19 @@ export default async function renderSupplierDetail(container, params = {}) {
 
       container.querySelector('#btnPrintKhataStatement')?.addEventListener('click', () => {
         window.print();
+      });
+
+      container.querySelector('#btnExportSupKhata')?.addEventListener('click', () => {
+        const cols = [
+          { key: 'date', label: 'Date', render: (val) => formatDate(val) },
+          { key: 'type', label: 'Type' },
+          { key: 'ref', label: 'Reference' },
+          { key: 'description', label: 'Particulars' },
+          { key: 'debit', label: 'Inward Bill (₹)', render: (val) => val > 0 ? formatCurrency(val) : '' },
+          { key: 'credit', label: 'Payment Paid (₹)', render: (val) => val > 0 ? formatCurrency(val) : '' },
+          { key: 'balance', label: 'Balance Due (₹)', render: (val) => val < 0 ? `${formatCurrency(Math.abs(val))} (Cr)` : formatCurrency(val) }
+        ];
+        downloadCsv(`MedStack_${supplier.name.replace(/\s+/g, '_')}_Khata_Statement.csv`, cols, ledgerRows);
       });
     };
 

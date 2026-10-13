@@ -40,7 +40,7 @@ public class InventoryController {
     }
 
     @GetMapping("/low-stock")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<ApiResponse<List<InventoryBatchResponse>>> getLowStock() {
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getLowStock(), "Low stock inventory fetched successfully", 200));
     }
@@ -52,7 +52,7 @@ public class InventoryController {
     }
 
     @GetMapping("/expiry/expired")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<ApiResponse<List<InventoryBatchResponse>>> getExpired() {
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getExpired(), "Expired inventory fetched successfully", 200));
     }

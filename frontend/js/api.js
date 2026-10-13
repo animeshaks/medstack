@@ -25,7 +25,7 @@ async function request(method, path, body = null, options = {}) {
 
     const response = await fetch(`${API_BASE}${path}`, config);
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       const { logout } = await import('./auth.js');
       logout();
       return null;
@@ -70,7 +70,7 @@ export const api = {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const resp = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
-      if (resp.status === 401 || resp.status === 403) {
+      if (resp.status === 401) {
         const { logout } = await import('./auth.js');
         logout();
         return null;

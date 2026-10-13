@@ -193,7 +193,7 @@ export default function renderInventory(container) {
         { key: 'status', label: 'Status', render: (_, row) => batchStatusBadge(row) }
       ];
 
-      const actions = [
+      const actions = can('manage_inventory') ? [
         {
           label: 'Retire',
           class: 'btn-danger',
@@ -207,7 +207,7 @@ export default function renderInventory(container) {
             }
           }
         }
-      ];
+      ] : [];
 
       renderTable(tableContainer, columns, items, { actions, exportFilename: 'MedStack_Near_Expiry.csv' });
     } catch (e) {
@@ -234,7 +234,7 @@ export default function renderInventory(container) {
         { key: 'status', label: 'Status', render: (_, row) => batchStatusBadge(row) }
       ];
 
-      const actions = [
+      const actions = can('manage_inventory') ? [
         {
           label: 'Retire',
           class: 'btn-danger',
@@ -248,7 +248,7 @@ export default function renderInventory(container) {
             }
           }
         }
-      ];
+      ] : [];
 
       renderTable(tableContainer, columns, items, { actions, exportFilename: 'MedStack_Expired_Batches.csv' });
     } catch (e) {

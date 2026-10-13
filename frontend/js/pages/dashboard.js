@@ -108,7 +108,7 @@ export default async function renderDashboard(container) {
         <div style="display:flex;flex-wrap:wrap;gap:12px">
           ${can('create_bills') ? '<a href="#/pos" class="btn btn-primary">🖥 New POS Bill</a>' : ''}
           ${can('manage_medicines') ? '<a href="#/medicines" class="btn btn-secondary">💊 Medicines Master</a>' : ''}
-          ${can('manage_inventory') ? '<a href="#/inventory" class="btn btn-secondary">📦 Batches &amp; Expiry</a>' : ''}
+          ${(can('manage_inventory') || can('view_inventory')) ? '<a href="#/inventory" class="btn btn-secondary">📦 Batches &amp; Expiry</a>' : ''}
           ${can('manage_customers') ? '<a href="#/customers" class="btn btn-secondary">👤 Customer Directory</a>' : ''}
           ${can('manage_purchases') ? '<a href="#/purchases" class="btn btn-secondary">🛒 Purchase Orders</a>' : ''}
           ${can('view_reports') ? '<a href="#/reports" class="btn btn-secondary">📊 Reports &amp; Analytics</a>' : ''}

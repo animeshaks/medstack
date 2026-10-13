@@ -59,12 +59,20 @@ public class UserController {
     @GetMapping("/suggest-username")
     @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
     public ApiResponse<Map<String, String>> suggestUsername(
-            @RequestParam(required = false, defaultValue = "STAFF") Role role,
+            @RequestParam(required = false, defaultValue = "STAFF") String role,
             @RequestParam(required = false) String fullName,
             @RequestParam(required = false) String name) {
+        Role targetRole = Role.STAFF;
+        if (role != null && !role.isBlank()) {
+            try {
+                targetRole = Role.valueOf(role.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                targetRole = Role.STAFF;
+            }
+        }
         String inputName = (fullName != null && !fullName.isBlank()) ? fullName : (name != null ? name : "");
-        String suggestion = userService.suggestUsername(role, inputName);
-        return ApiResponse.success(Map.of("username", suggestion), "Username suggestion generated", 200);
+        String suggestion = userService.suggestUsername(targetRole, inputName);
+        return ApiResponse.success(Map.of("username", suggestion != null ? suggestion : "staff_user"), "Username suggestion generated", 200);
     }
 
     @GetMapping

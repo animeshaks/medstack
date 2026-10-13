@@ -352,15 +352,15 @@ public class BillService {
                 predicates.add(cb.equal(root.get("paymentStatus"), paymentStatus));
             }
             if (Boolean.TRUE.equals(rxRequiredOnly)) {
-                jakarta.persistence.criteria.Subquery<UUID> subquery = query.subquery(UUID.class);
+                jakarta.persistence.criteria.Subquery<Integer> subquery = query.subquery(Integer.class);
                 jakarta.persistence.criteria.Root<SalesOrderItem> itemRoot = subquery.from(SalesOrderItem.class);
                 jakarta.persistence.criteria.Join<SalesOrderItem, InventoryBatch> batchJoin = itemRoot.join("inventoryBatch", jakarta.persistence.criteria.JoinType.INNER);
                 jakarta.persistence.criteria.Join<InventoryBatch, Medicine> medJoin = batchJoin.join("medicine", jakarta.persistence.criteria.JoinType.INNER);
-                subquery.select(itemRoot.get("salesOrder").get("id"))
+                subquery.select(cb.literal(1))
                         .where(
-                            cb.isFalse(itemRoot.get("isDeleted")),
-                            cb.isTrue(medJoin.get("requiresPrescription")),
-                            cb.equal(itemRoot.get("salesOrder").get("id"), root.get("id"))
+                            cb.equal(itemRoot.get("salesOrder"), root),
+                            cb.notEqual(itemRoot.get("isDeleted"), true),
+                            cb.isTrue(medJoin.get("requiresPrescription"))
                         );
                 predicates.add(cb.exists(subquery));
             }

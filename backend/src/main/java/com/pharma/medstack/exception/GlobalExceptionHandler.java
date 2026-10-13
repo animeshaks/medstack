@@ -71,6 +71,27 @@ public class GlobalExceptionHandler {
         return ApiResponse.error("Authentication failed", HttpStatus.UNAUTHORIZED.value(), new ErrorDetail("UNAUTHORIZED", null));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.warn("Illegal argument: {}", ex.getMessage());
+        return ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value(), new ErrorDetail("INVALID_ARGUMENT", null));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleTypeMismatchException(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        String msg = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
+        log.warn("Type mismatch: {}", msg);
+        return ApiResponse.error(msg, HttpStatus.BAD_REQUEST.value(), new ErrorDetail("TYPE_MISMATCH", null));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public ApiResponse<Void> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return ApiResponse.error(ex.getMessage(), HttpStatus.METHOD_NOT_ALLOWED.value(), new ErrorDetail("METHOD_NOT_ALLOWED", null));
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleGenericException(Exception ex) {

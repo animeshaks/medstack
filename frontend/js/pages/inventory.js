@@ -263,11 +263,54 @@ export default function renderInventory(container) {
       const items = Array.isArray(resp?.data) ? resp.data : (resp?.data?.content ?? []);
 
       const columns = [
-        { key: 'name', label: 'Medicine', render: (val) => `<strong>${val}</strong>` },
-        { key: 'category', label: 'Category', render: (val) => badge(val, 'info') },
-        { key: 'rackLocation', label: 'Rack', render: (val) => val || '—' },
-        { key: 'minStockAlertLevel', label: 'Min Alert Level', render: (val) => `<code>${val}</code>` },
-        { key: 'currentStock', label: 'Current Total Stock', render: (val) => `<span class="badge badge-danger" style="font-size:0.85rem">${val ?? 0}</span>` }
+        {
+          key: 'medicineName',
+          label: 'Medicine',
+          render: (val, row) => `<strong>${val || row.name || row.itemName || '—'}</strong><br><small style="color:var(--text-muted)">${row.genericName || ''}</small>`
+        },
+        {
+          key: 'batchNumber',
+          label: 'Batch #',
+          render: (val) => val ? `<code style="color:var(--accent);font-weight:700">${val}</code>` : '—'
+        },
+        {
+          key: 'category',
+          label: 'Category',
+          render: (val) => val ? badge(val, 'info') : '—'
+        },
+        {
+          key: 'rackLocation',
+          label: 'Rack',
+          render: (val) => val ? `📍 <strong>${val}</strong>` : '—'
+        },
+        {
+          key: 'quantity',
+          label: 'In Stock',
+          render: (val, row) => {
+            const qty = val !== undefined ? val : (row.currentStock ?? 0);
+            if (row.unitsPerPack && row.unitsPerPack > 1) {
+              const loose = row.looseQuantity || 0;
+              const total = row.totalUnits !== undefined ? row.totalUnits : ((qty * row.unitsPerPack) + loose);
+              return `<span class="badge badge-danger" style="font-size:0.85rem">${qty} pack(s)</span>${loose > 0 ? ` + <span style="color:var(--accent);font-weight:600">${loose} tab(s)</span>` : ''}<br><small style="color:var(--text-muted)">Total: ${total} tab(s)</small>`;
+            }
+            return `<span class="badge badge-danger" style="font-size:0.85rem">${qty}</span>`;
+          }
+        },
+        {
+          key: 'minStockAlertLevel',
+          label: 'Min Alert Level',
+          render: (val, row) => `<code>${val !== undefined ? val : (row.minStockAlertLevel ?? '—')}</code>`
+        },
+        {
+          key: 'mrp',
+          label: 'MRP',
+          render: (val) => val !== undefined ? formatCurrency(val) : '—'
+        },
+        {
+          key: 'status',
+          label: 'Status',
+          render: () => '<span class="badge badge-danger">⚠️ Low Stock</span>'
+        }
       ];
 
       renderTable(tableContainer, columns, items, { exportFilename: 'MedStack_Low_Stock.csv' });

@@ -90,6 +90,8 @@ public class InventoryService {
                 batch.getMedicine().getId(),
                 batch.getMedicine().getName(),
                 batch.getMedicine().getGenericName(),
+                batch.getMedicine().getCategory(),
+                batch.getMedicine().getRackLocation(),
                 batch.getBatchNumber(),
                 batch.getExpiryDate(),
                 batch.getMrp(),

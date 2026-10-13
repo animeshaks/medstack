@@ -9,6 +9,8 @@ public record InventoryBatchResponse(
     UUID medicineId,
     String medicineName,
     String genericName,
+    String category,
+    String rackLocation,
     String batchNumber,
     LocalDate expiryDate,
     BigDecimal mrp,
@@ -24,9 +26,17 @@ public record InventoryBatchResponse(
 ) {
     public InventoryBatchResponse(UUID id, UUID medicineId, String medicineName, String genericName,
                                   String batchNumber, LocalDate expiryDate, BigDecimal mrp, BigDecimal costPrice,
+                                  BigDecimal sellingPrice, int quantity, int looseQuantity, int unitsPerPack,
+                                  int totalUnits, boolean isRetired, int minStockAlertLevel, boolean lowStock) {
+        this(id, medicineId, medicineName, genericName, null, null, batchNumber, expiryDate, mrp, costPrice,
+             sellingPrice, quantity, looseQuantity, unitsPerPack, totalUnits, isRetired, minStockAlertLevel, lowStock);
+    }
+
+    public InventoryBatchResponse(UUID id, UUID medicineId, String medicineName, String genericName,
+                                  String batchNumber, LocalDate expiryDate, BigDecimal mrp, BigDecimal costPrice,
                                   BigDecimal sellingPrice, int quantity, boolean isRetired, int minStockAlertLevel,
                                   boolean lowStock) {
-        this(id, medicineId, medicineName, genericName, batchNumber, expiryDate, mrp, costPrice, sellingPrice,
-             quantity, 0, 1, quantity, isRetired, minStockAlertLevel, lowStock);
+        this(id, medicineId, medicineName, genericName, null, null, batchNumber, expiryDate, mrp, costPrice,
+             sellingPrice, quantity, 0, 1, quantity, isRetired, minStockAlertLevel, lowStock);
     }
 }

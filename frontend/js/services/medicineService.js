@@ -2,9 +2,14 @@
 import { api } from '../api.js';
 
 export const medicineService = {
-  getAll: ({ page = 0, size = 20, search = '' } = {}) => {
-    const q = search ? `&search=${encodeURIComponent(search)}` : '';
-    return api.get(`/medicines?page=${page}&size=${size}${q}`);
+  getAll: ({ page = 0, size = 20, search = '', symptom = '', ageGroup = '' } = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    if (search) params.append('search', search);
+    if (symptom) params.append('symptom', symptom);
+    if (ageGroup) params.append('ageGroup', ageGroup);
+    return api.get(`/medicines?${params.toString()}`);
   },
   getById: (id) => api.get(`/medicines/${id}`),
   create: (data) => api.post('/medicines', data),

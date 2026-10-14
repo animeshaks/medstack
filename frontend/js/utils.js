@@ -665,7 +665,8 @@ export function buildFormHtml(fields, data = {}) {
     if (f.type === 'textarea') {
       return `<div class="form-group">
         <label class="form-label" for="${id}">${f.label}${f.required ? ' *' : ''}</label>
-        <textarea class="form-control" id="${id}" name="${f.name}" rows="3" ${req}>${val}</textarea>
+        <textarea class="form-control" id="${id}" name="${f.name}" rows="${f.rows || 3}" placeholder="${f.placeholder || ''}" ${req}>${val}</textarea>
+        ${f.helperHtml || ''}
       </div>`;
     }
 

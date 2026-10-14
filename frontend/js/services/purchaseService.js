@@ -2,12 +2,18 @@
 import { api } from '../api.js';
 
 export const purchaseService = {
-  getAll: ({ page = 0, size = 20, search = '', supplierId = '', paymentStatus = '' } = {}) => {
-    let q = `page=${page}&size=${size}&sort=createdAt,desc`;
-    if (search) q += `&search=${encodeURIComponent(search)}`;
-    if (supplierId) q += `&supplierId=${encodeURIComponent(supplierId)}`;
-    if (paymentStatus) q += `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
-    return api.get(`/purchases?${q}`);
+  getAll: ({ page = 0, size = 15, search = '', supplierId = '', paymentStatus = '', status = '', from = '', to = '' } = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    params.append('sort', 'createdAt,desc');
+    if (search) params.append('search', search);
+    if (supplierId) params.append('supplierId', supplierId);
+    if (paymentStatus) params.append('paymentStatus', paymentStatus);
+    if (status) params.append('status', status);
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    return api.get(`/purchases?${params.toString()}`);
   },
 
   getById: (id) => api.get(`/purchases/${id}`),

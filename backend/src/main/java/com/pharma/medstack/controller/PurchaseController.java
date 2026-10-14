@@ -1,6 +1,7 @@
 package com.pharma.medstack.controller;
 
 import com.pharma.medstack.entity.PaymentStatus;
+import com.pharma.medstack.entity.PurchaseOrderStatus;
 import com.pharma.medstack.model.request.PayPurchaseOrderRequest;
 import com.pharma.medstack.model.request.PurchaseOrderRequest;
 import com.pharma.medstack.model.request.ReceivePurchaseOrderRequest;
@@ -14,11 +15,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,11 +35,15 @@ public class PurchaseController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<PurchaseOrderResponse>>> getAllPurchaseOrders(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) UUID supplierId,
             @RequestParam(required = false) PaymentStatus paymentStatus,
+            @RequestParam(required = false) PurchaseOrderStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(
-                purchaseService.getAllPurchaseOrders(supplierId, paymentStatus, pageable),
+                purchaseService.getAllPurchaseOrders(search, supplierId, paymentStatus, status, from, to, pageable),
                 "Purchase orders fetched successfully", 200));
     }
 

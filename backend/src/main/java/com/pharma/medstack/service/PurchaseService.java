@@ -12,6 +12,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -143,11 +145,24 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public Page<PurchaseOrderResponse> getAllPurchaseOrders(Pageable pageable) {
-        return getAllPurchaseOrders(null, null, pageable);
+        return getAllPurchaseOrders(null, null, null, null, null, null, pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<PurchaseOrderResponse> getAllPurchaseOrders(UUID supplierId, PaymentStatus paymentStatus, Pageable pageable) {
+        return getAllPurchaseOrders(null, supplierId, paymentStatus, null, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PurchaseOrderResponse> getAllPurchaseOrders(
+            String search,
+            UUID supplierId,
+            PaymentStatus paymentStatus,
+            PurchaseOrderStatus status,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Pageable pageable) {
+
         Pageable sortedPageable = pageable;
         if (pageable.getSort().isUnsorted()) {
             sortedPageable = PageRequest.of(
@@ -157,14 +172,47 @@ public class PurchaseService {
             );
         }
 
-        Page<PurchaseOrder> page;
-        if (supplierId != null && paymentStatus != null) {
-            page = purchaseOrderRepository.findAllBySupplierIdAndPaymentStatusAndIsDeletedFalse(supplierId, paymentStatus, sortedPageable);
-        } else if (supplierId != null) {
-            page = purchaseOrderRepository.findAllBySupplierIdAndIsDeletedFalse(supplierId, sortedPageable);
-        } else {
-            page = purchaseOrderRepository.findAllByIsDeletedFalse(sortedPageable);
-        }
+        Specification<PurchaseOrder> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isFalse(root.get("isDeleted")));
+
+            if (supplierId != null) {
+                predicates.add(cb.equal(root.get("supplier").get("id"), supplierId));
+            }
+
+            if (paymentStatus != null) {
+                predicates.add(cb.equal(root.get("paymentStatus"), paymentStatus));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (search != null && !search.trim().isEmpty()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                Predicate pInvoice = cb.like(cb.lower(root.get("invoiceNumber")), pattern);
+                Predicate pSupplier = cb.like(cb.lower(root.get("supplier").get("name")), pattern);
+                predicates.add(cb.or(pInvoice, pSupplier));
+            }
+
+            if (fromDate != null) {
+                Instant fromInstant = fromDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+                Predicate pInv = cb.and(cb.isNotNull(root.get("invoiceDate")), cb.greaterThanOrEqualTo(root.get("invoiceDate"), fromDate));
+                Predicate pCreated = cb.and(cb.isNull(root.get("invoiceDate")), cb.greaterThanOrEqualTo(root.get("createdAt"), fromInstant));
+                predicates.add(cb.or(pInv, pCreated));
+            }
+
+            if (toDate != null) {
+                Instant toInstant = toDate.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+                Predicate pInv = cb.and(cb.isNotNull(root.get("invoiceDate")), cb.lessThanOrEqualTo(root.get("invoiceDate"), toDate));
+                Predicate pCreated = cb.and(cb.isNull(root.get("invoiceDate")), cb.lessThan(root.get("createdAt"), toInstant));
+                predicates.add(cb.or(pInv, pCreated));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<PurchaseOrder> page = purchaseOrderRepository.findAll(spec, sortedPageable);
 
         return page.map(po -> {
             List<PurchaseOrderItem> items = purchaseOrderItemRepository.findAllByPurchaseOrderIdAndIsDeletedFalse(po.getId());

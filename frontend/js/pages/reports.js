@@ -17,7 +17,7 @@ export default async function renderReports(container) {
   }
 
   // State
-  let activeReportType = 'summary'; // 'summary', 'sales', 'purchases', 'expenses', 'bills', 'inventory'
+  let activeReportType = 'sales'; // 'sales', 'purchases', 'expenses', 'inventory'
   let activePeriodPreset = 'month'; // 'today', 'week', 'month', 'fy', 'custom'
   let activeAggregation = 'day'; // 'day', 'month', 'year'
 
@@ -234,7 +234,7 @@ export default async function renderReports(container) {
       const sales = Number(data.totalSales) || 0;
       const purchases = Number(data.totalPurchases) || 0;
       const expenses = Number(data.totalExpenses) || 0;
-      const netProfit = Number(data.netProfit) || 0;
+      const netProfit = Number(data.netOperatingIncome != null ? data.netOperatingIncome : data.netProfit) || 0;
 
       if (elSales) elSales.textContent = formatCurrency(sales);
       if (elPurchases) elPurchases.textContent = formatCurrency(purchases);
@@ -479,6 +479,7 @@ export default async function renderReports(container) {
   };
 
   // ── 2. Purchase Orders Report (Day / Month / Year + Chart) ─────────────────
+  // ── 2. Purchase Orders Report (Day / Month / Year + Chart) ─────────────────
   const loadPurchasesReport = async () => {
     try {
       const resp = await reportService.getPurchasesReport(fromDate, toDate);
@@ -486,13 +487,14 @@ export default async function renderReports(container) {
 
       const renderPurchasesView = () => {
         const rows = aggregateData(rawRows, activeAggregation, 'date', [
-          'purchaseCount', 'receivedCount', 'totalPurchases', 'totalTax'
+          'orderCount', 'totalAmount', 'taxAmount', 'paidAmount', 'dueAmount'
         ]);
 
-        const totalSpend = rows.reduce((s, r) => s + (Number(r.totalPurchases) || 0), 0);
-        const totalTax = rows.reduce((s, r) => s + (Number(r.totalTax) || 0), 0);
-        const totalPOs = rows.reduce((s, r) => s + (Number(r.purchaseCount) || 0), 0);
-        const totalReceived = rows.reduce((s, r) => s + (Number(r.receivedCount) || 0), 0);
+        const totalSpend = rows.reduce((s, r) => s + (Number(r.totalAmount) || 0), 0);
+        const totalTax = rows.reduce((s, r) => s + (Number(r.taxAmount) || 0), 0);
+        const totalPaid = rows.reduce((s, r) => s + (Number(r.paidAmount) || 0), 0);
+        const totalDue = rows.reduce((s, r) => s + (Number(r.dueAmount) || 0), 0);
+        const totalPOs = rows.reduce((s, r) => s + (Number(r.orderCount) || 0), 0);
 
         contentArea.innerHTML = `
           <!-- Aggregation Toggle Header -->
@@ -531,8 +533,9 @@ export default async function renderReports(container) {
                       <tr>
                         <th>${activeAggregation === 'year' ? 'Year' : (activeAggregation === 'month' ? 'Month' : 'Date')}</th>
                         <th style="text-align:center">Total POs</th>
-                        <th style="text-align:center">Received POs</th>
                         <th style="text-align:right">Input Tax</th>
+                        <th style="text-align:right">Amount Paid</th>
+                        <th style="text-align:right">Payment Due</th>
                         <th style="text-align:right">Total Purchase Spend</th>
                       </tr>
                     </thead>
@@ -540,10 +543,11 @@ export default async function renderReports(container) {
                       ${rows.map(r => `
                         <tr>
                           <td><strong>${formatPeriodLabel(r.date, activeAggregation)}</strong></td>
-                          <td style="text-align:center"><strong>${r.purchaseCount || 0}</strong></td>
-                          <td style="text-align:center"><span class="badge badge-success">${r.receivedCount || 0}</span></td>
-                          <td style="text-align:right">${formatCurrency(r.totalTax)}</td>
-                          <td style="text-align:right"><strong style="color:var(--info)">${formatCurrency(r.totalPurchases)}</strong></td>
+                          <td style="text-align:center"><strong>${r.orderCount || 0}</strong></td>
+                          <td style="text-align:right">${formatCurrency(r.taxAmount)}</td>
+                          <td style="text-align:right;color:var(--success)">${formatCurrency(r.paidAmount)}</td>
+                          <td style="text-align:right;color:${(Number(r.dueAmount) || 0) > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${formatCurrency(r.dueAmount)}</td>
+                          <td style="text-align:right"><strong style="color:var(--info)">${formatCurrency(r.totalAmount)}</strong></td>
                         </tr>
                       `).join('')}
                     </tbody>
@@ -551,8 +555,9 @@ export default async function renderReports(container) {
                       <tr style="border-top:2px solid var(--border);font-weight:700">
                         <td>TOTAL</td>
                         <td style="text-align:center">${totalPOs}</td>
-                        <td style="text-align:center">${totalReceived}</td>
                         <td style="text-align:right">${formatCurrency(totalTax)}</td>
+                        <td style="text-align:right;color:var(--success)">${formatCurrency(totalPaid)}</td>
+                        <td style="text-align:right;color:${totalDue > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${formatCurrency(totalDue)}</td>
                         <td style="text-align:right;color:var(--info)">${formatCurrency(totalSpend)}</td>
                       </tr>
                     </tfoot>
@@ -566,8 +571,8 @@ export default async function renderReports(container) {
         const canvas = contentArea.querySelector('#purchaseChart');
         if (canvas && rows.length > 0) {
           const labels = rows.map(r => formatPeriodLabel(r.date, activeAggregation));
-          const spendValues = rows.map(r => Number(r.totalPurchases) || 0);
-          const orderCounts = rows.map(r => Number(r.purchaseCount) || 0);
+          const spendValues = rows.map(r => Number(r.totalAmount) || 0);
+          const orderCounts = rows.map(r => Number(r.orderCount) || 0);
 
           renderChart(canvas, {
             type: 'bar',
@@ -622,11 +627,11 @@ export default async function renderReports(container) {
 
         // Set CSV Export Handler
         currentExportHandler = () => {
-          let csv = 'Period,Total POs,Received POs,Input Tax,Total Purchase Spend\n';
+          let csv = 'Period,Total POs,Input Tax,Amount Paid,Payment Due,Total Purchase Spend\n';
           rows.forEach(r => {
-            csv += `"${formatPeriodLabel(r.date, activeAggregation)}",${r.purchaseCount || 0},${r.receivedCount || 0},${r.totalTax || 0},${r.totalPurchases || 0}\n`;
+            csv += `"${formatPeriodLabel(r.date, activeAggregation)}",${r.orderCount || 0},${r.taxAmount || 0},${r.paidAmount || 0},${r.dueAmount || 0},${r.totalAmount || 0}\n`;
           });
-          csv += `"TOTAL",${totalPOs},${totalReceived},${totalTax},${totalSpend}\n`;
+          csv += `"TOTAL",${totalPOs},${totalTax},${totalPaid},${totalDue},${totalSpend}\n`;
           downloadCsv(`Purchase_Orders_Report_${fromDate}_to_${toDate}_(${activeAggregation}).csv`, csv);
         };
       };
@@ -646,20 +651,17 @@ export default async function renderReports(container) {
 
       const renderExpensesView = () => {
         const rows = aggregateData(rawRows, activeAggregation, 'date', [
-          'totalAmount', 'expenseCount'
+          'amount', 'count'
         ]);
 
-        const totalExpenses = rows.reduce((s, r) => s + (Number(r.totalAmount) || 0), 0);
-        const totalCount = rows.reduce((s, r) => s + (Number(r.expenseCount) || 0), 0);
+        const totalExpenses = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+        const totalCount = rows.reduce((s, r) => s + (Number(r.count) || 0), 0);
 
-        // Compute overall category breakdown
+        // Compute overall category breakdown from rawRows
         const categoryTotals = {};
         rawRows.forEach(r => {
-          if (r.byCategory && typeof r.byCategory === 'object') {
-            Object.entries(r.byCategory).forEach(([cat, amt]) => {
-              categoryTotals[cat] = (categoryTotals[cat] || 0) + Number(amt);
-            });
-          }
+          const cat = r.category || 'General';
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + (Number(r.amount) || 0);
         });
 
         contentArea.innerHTML = `
@@ -715,8 +717,8 @@ export default async function renderReports(container) {
                       ${rows.map(r => `
                         <tr>
                           <td><strong>${formatPeriodLabel(r.date, activeAggregation)}</strong></td>
-                          <td style="text-align:center"><strong>${r.expenseCount || 0}</strong></td>
-                          <td style="text-align:right"><strong style="color:var(--danger)">${formatCurrency(r.totalAmount)}</strong></td>
+                          <td style="text-align:center"><strong>${r.count || 0}</strong></td>
+                          <td style="text-align:right"><strong style="color:var(--danger)">${formatCurrency(r.amount)}</strong></td>
                         </tr>
                       `).join('')}
                     </tbody>
@@ -768,7 +770,7 @@ export default async function renderReports(container) {
               labels: rows.map(r => formatPeriodLabel(r.date, activeAggregation)),
               datasets: [{
                 label: 'Expenses (₹)',
-                data: rows.map(r => Number(r.totalAmount) || 0),
+                data: rows.map(r => Number(r.amount) || 0),
                 borderColor: '#ef4444',
                 backgroundColor: 'rgba(239, 68, 68, 0.2)',
                 tension: 0.3,
@@ -797,7 +799,7 @@ export default async function renderReports(container) {
         currentExportHandler = () => {
           let csv = 'Period,Entries Count,Total Amount\n';
           rows.forEach(r => {
-            csv += `"${formatPeriodLabel(r.date, activeAggregation)}",${r.expenseCount || 0},${r.totalAmount || 0}\n`;
+            csv += `"${formatPeriodLabel(r.date, activeAggregation)}",${r.count || 0},${r.amount || 0}\n`;
           });
           csv += `"TOTAL",${totalCount},${totalExpenses}\n`;
           downloadCsv(`Expenses_Report_${fromDate}_to_${toDate}_(${activeAggregation}).csv`, csv);

@@ -3,7 +3,7 @@ import { purchaseService } from '../services/purchaseService.js';
 import { supplierService } from '../services/supplierService.js';
 import { medicineService } from '../services/medicineService.js';
 import { inventoryService } from '../services/inventoryService.js';
-import { formatCurrency, formatDate, extractPage, buildFormHtml, getFormData, showLoading, showError } from '../utils.js';
+import { formatCurrency, formatDate, extractPage, buildFormHtml, getFormData, showLoading, showError, debounce } from '../utils.js';
 import { renderTable, statusBadge } from '../components/table.js';
 import { renderPagination } from '../components/pagination.js';
 import { showModal, confirm } from '../components/modal.js';
@@ -30,6 +30,47 @@ export default function renderPurchases(container) {
   let activeTab = 'orders'; // 'orders' | 'shortage'
   let currentPage = 0;
   const pageSize = 15;
+
+  let filterSearch = '';
+  let filterSupplierId = '';
+  let filterDeliveryStatus = '';
+  let filterPaymentStatus = '';
+  let filterDatePreset = 'all'; // 'all', 'today', 'month', 'fy', 'custom'
+  let filterFromDate = '';
+  let filterToDate = '';
+
+  const computePoDateRange = (preset) => {
+    const today = new Date();
+    if (preset === 'today') {
+      const d = today.toISOString().split('T')[0];
+      return { from: d, to: d };
+    }
+    if (preset === 'month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return {
+        from: firstDay.toISOString().split('T')[0],
+        to: lastDay.toISOString().split('T')[0]
+      };
+    }
+    if (preset === 'fy') {
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth(); // 0 is January, 3 is April
+      let startYear, endYear;
+      if (currentMonth >= 3) {
+        startYear = currentYear;
+        endYear = currentYear + 1;
+      } else {
+        startYear = currentYear - 1;
+        endYear = currentYear;
+      }
+      return {
+        from: `${startYear}-04-01`,
+        to: `${endYear}-03-31`
+      };
+    }
+    return { from: '', to: '' };
+  };
 
   container.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
@@ -63,6 +104,67 @@ export default function renderPurchases(container) {
 
     <!-- Orders Tab Content -->
     <div id="ordersSection" class="card">
+      <!-- Purchase Orders Filter Toolbar -->
+      <div class="toolbar" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+        
+        <!-- Primary Row: Search + Supplier + Status Filters -->
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div class="search-box" style="flex:1;min-width:220px">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="poSearchInput" class="form-control" placeholder="Search by Invoice # or Distributor..." autocomplete="off" />
+          </div>
+
+          <div style="min-width:180px">
+            <select id="poSupplierFilter" class="form-control" style="font-size:0.85rem">
+              <option value="">All Distributors</option>
+            </select>
+          </div>
+
+          <div style="min-width:145px">
+            <select id="poDeliveryStatusFilter" class="form-control" style="font-size:0.85rem">
+              <option value="">All Delivery Statuses</option>
+              <option value="PENDING">⏳ PENDING (Awaiting Delivery)</option>
+              <option value="RECEIVED">✅ RECEIVED (Stocked)</option>
+            </select>
+          </div>
+
+          <div style="min-width:145px">
+            <select id="poPaymentStatusFilter" class="form-control" style="font-size:0.85rem">
+              <option value="">All Payment Statuses</option>
+              <option value="PAID">✅ Fully Paid</option>
+              <option value="PARTIAL">⚠️ Partially Paid</option>
+              <option value="UNPAID">❌ Unpaid / Due</option>
+            </select>
+          </div>
+
+          <button type="button" id="poResetFiltersBtn" class="btn btn-secondary btn-sm" title="Clear all filters">
+            ↺ Reset
+          </button>
+        </div>
+
+        <!-- Date / Period Row: Presets & Custom Date Range -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">Period:</span>
+            <div style="display:flex;gap:4px" id="poDatePresets">
+              <button type="button" class="btn btn-sm btn-primary po-preset-btn" data-preset="all">All Time</button>
+              <button type="button" class="btn btn-sm btn-secondary po-preset-btn" data-preset="today">Today</button>
+              <button type="button" class="btn btn-sm btn-secondary po-preset-btn" data-preset="month">This Month</button>
+              <button type="button" class="btn btn-sm btn-secondary po-preset-btn" data-preset="fy">This FY (Apr-Mar)</button>
+              <button type="button" class="btn btn-sm btn-secondary po-preset-btn" data-preset="custom">Custom Range</button>
+            </div>
+          </div>
+
+          <div id="poCustomDateRange" style="display:none;align-items:center;gap:6px">
+            <input type="date" id="poStartDate" class="form-control" style="font-size:0.8rem;padding:4px 8px;width:auto" />
+            <span style="font-size:0.75rem;color:var(--text-muted)">to</span>
+            <input type="date" id="poEndDate" class="form-control" style="font-size:0.8rem;padding:4px 8px;width:auto" />
+            <button type="button" id="poApplyCustomDateBtn" class="btn btn-sm btn-primary" style="padding:4px 10px">Apply</button>
+          </div>
+        </div>
+
+      </div>
+
       <div id="purchaseTableContainer"></div>
       <div id="purchasePagination"></div>
     </div>
@@ -105,6 +207,23 @@ export default function renderPurchases(container) {
     if (tabShortageCount) tabShortageCount.textContent = count;
   };
 
+  const populateSupplierFilter = async () => {
+    try {
+      const supResp = await supplierService.getAll({ page: 0, size: 200 });
+      const suppliers = supResp?.data?.content ?? supResp?.data ?? [];
+      const sel = container.querySelector('#poSupplierFilter');
+      if (!sel) return;
+      suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('Failed to load suppliers for filter dropdown', e);
+    }
+  };
+
   const switchTab = (tab) => {
     activeTab = tab;
     if (tab === 'orders') {
@@ -134,6 +253,114 @@ export default function renderPurchases(container) {
   if (tabShortage) tabShortage.addEventListener('click', () => switchTab('shortage'));
   if (openShortageBtn) openShortageBtn.addEventListener('click', () => switchTab('shortage'));
 
+  // Filter toolbar controls
+  const poSearchInput = container.querySelector('#poSearchInput');
+  const poSupplierFilter = container.querySelector('#poSupplierFilter');
+  const poDeliveryStatusFilter = container.querySelector('#poDeliveryStatusFilter');
+  const poPaymentStatusFilter = container.querySelector('#poPaymentStatusFilter');
+  const poResetFiltersBtn = container.querySelector('#poResetFiltersBtn');
+  const poDatePresetBtns = container.querySelectorAll('.po-preset-btn');
+  const poCustomDateRange = container.querySelector('#poCustomDateRange');
+  const poStartDate = container.querySelector('#poStartDate');
+  const poEndDate = container.querySelector('#poEndDate');
+  const poApplyCustomDateBtn = container.querySelector('#poApplyCustomDateBtn');
+
+  if (poSearchInput) {
+    poSearchInput.addEventListener('input', debounce((e) => {
+      filterSearch = e.target.value.trim();
+      loadData(0);
+    }, 300));
+  }
+
+  if (poSupplierFilter) {
+    poSupplierFilter.addEventListener('change', (e) => {
+      filterSupplierId = e.target.value;
+      loadData(0);
+    });
+  }
+
+  if (poDeliveryStatusFilter) {
+    poDeliveryStatusFilter.addEventListener('change', (e) => {
+      filterDeliveryStatus = e.target.value;
+      loadData(0);
+    });
+  }
+
+  if (poPaymentStatusFilter) {
+    poPaymentStatusFilter.addEventListener('change', (e) => {
+      filterPaymentStatus = e.target.value;
+      loadData(0);
+    });
+  }
+
+  poDatePresetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.getAttribute('data-preset');
+      filterDatePreset = preset;
+
+      poDatePresetBtns.forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+
+      if (preset === 'custom') {
+        if (poCustomDateRange) poCustomDateRange.style.display = 'flex';
+      } else {
+        if (poCustomDateRange) poCustomDateRange.style.display = 'none';
+        const { from, to } = computePoDateRange(preset);
+        filterFromDate = from;
+        filterToDate = to;
+        loadData(0);
+      }
+    });
+  });
+
+  if (poApplyCustomDateBtn) {
+    poApplyCustomDateBtn.addEventListener('click', () => {
+      filterFromDate = poStartDate?.value || '';
+      filterToDate = poEndDate?.value || '';
+      if (!filterFromDate && !filterToDate) {
+        showToast('Please select at least a start or end date', 'warning');
+        return;
+      }
+      loadData(0);
+    });
+  }
+
+  if (poResetFiltersBtn) {
+    poResetFiltersBtn.addEventListener('click', () => {
+      filterSearch = '';
+      filterSupplierId = '';
+      filterDeliveryStatus = '';
+      filterPaymentStatus = '';
+      filterDatePreset = 'all';
+      filterFromDate = '';
+      filterToDate = '';
+
+      if (poSearchInput) poSearchInput.value = '';
+      if (poSupplierFilter) poSupplierFilter.value = '';
+      if (poDeliveryStatusFilter) poDeliveryStatusFilter.value = '';
+      if (poPaymentStatusFilter) poPaymentStatusFilter.value = '';
+      if (poStartDate) poStartDate.value = '';
+      if (poEndDate) poEndDate.value = '';
+      if (poCustomDateRange) poCustomDateRange.style.display = 'none';
+
+      poDatePresetBtns.forEach(b => {
+        if (b.getAttribute('data-preset') === 'all') {
+          b.classList.remove('btn-secondary');
+          b.classList.add('btn-primary');
+        } else {
+          b.classList.remove('btn-primary');
+          b.classList.add('btn-secondary');
+        }
+      });
+
+      loadData(0);
+    });
+  }
+
   // ----------------------------------------------------
   // Purchase Orders Table
   // ----------------------------------------------------
@@ -142,7 +369,16 @@ export default function renderPurchases(container) {
     showLoading(tableContainer, 'Loading purchase orders...');
 
     try {
-      const resp = await purchaseService.getAll({ page, size: pageSize });
+      const resp = await purchaseService.getAll({
+        page,
+        size: pageSize,
+        search: filterSearch,
+        supplierId: filterSupplierId,
+        paymentStatus: filterPaymentStatus,
+        status: filterDeliveryStatus,
+        from: filterFromDate,
+        to: filterToDate
+      });
       const { content, page: pageMeta } = extractPage(resp);
 
       const columns = [
@@ -1688,5 +1924,6 @@ export default function renderPurchases(container) {
 
   // Initial load
   updateShortageBadges();
+  populateSupplierFilter();
   loadData();
 }

@@ -141,23 +141,28 @@ public class BillService {
                     packPrice = batch.getMrp();
                 }
 
-                BigDecimal unitPrice;
-                BigDecimal lineSubtotal;
+                BigDecimal grossUnitPrice;
+                BigDecimal grossLineTotal;
                 if ("TABLET".equalsIgnoreCase(dispenseUnit) && batchPackSize > 1) {
-                    unitPrice = packPrice.divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP);
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
+                    grossUnitPrice = packPrice.divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP);
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
                 } else if ("STRIP".equalsIgnoreCase(dispenseUnit) && batchPackSize > 1) {
-                    unitPrice = packPrice;
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits).divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP));
+                    grossUnitPrice = packPrice;
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits).divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP));
                 } else {
-                    unitPrice = packPrice;
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
+                    grossUnitPrice = packPrice;
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
                 }
 
-                totalAmount = totalAmount.add(lineSubtotal);
-
                 BigDecimal taxRate = medicine.getGstRate() != null ? medicine.getGstRate() : new BigDecimal("5.00");
-                BigDecimal itemTax = lineSubtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal taxMultiplier = BigDecimal.ONE.add(taxRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+
+                // Reduced taxable subtotal and unit price (Tax-Inclusive / MRP-safe)
+                BigDecimal lineSubtotal = grossLineTotal.divide(taxMultiplier, 2, RoundingMode.HALF_UP);
+                BigDecimal unitPrice = lineSubtotal.divide(BigDecimal.valueOf(takeUnits), 2, RoundingMode.HALF_UP);
+                BigDecimal itemTax = grossLineTotal.subtract(lineSubtotal);
+
+                totalAmount = totalAmount.add(lineSubtotal);
                 taxAmount = taxAmount.add(itemTax);
 
                 SalesOrderItem orderItem = SalesOrderItem.builder()
@@ -198,8 +203,14 @@ public class BillService {
             discountAmount = totalAmount;
         }
 
-        BigDecimal grandTotal = totalAmount.add(taxAmount).subtract(discountAmount);
-        if (grandTotal.compareTo(BigDecimal.ZERO) < 0) grandTotal = BigDecimal.ZERO;
+        BigDecimal unroundedGrandTotal = totalAmount.add(taxAmount).subtract(discountAmount);
+        if (unroundedGrandTotal.compareTo(BigDecimal.ZERO) < 0) {
+            unroundedGrandTotal = BigDecimal.ZERO;
+        }
+
+        // Floor to lower whole Rupee, guaranteeing bill never crosses MRP
+        BigDecimal grandTotal = unroundedGrandTotal.setScale(0, RoundingMode.FLOOR).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal roundOff = grandTotal.subtract(unroundedGrandTotal).setScale(2, RoundingMode.HALF_UP);
 
         // Earn 1 point per full ₹100 of grand total
         int earnedPoints = 0;
@@ -239,6 +250,7 @@ public class BillService {
                 .totalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP))
                 .discountAmount(discountAmount.setScale(2, RoundingMode.HALF_UP))
                 .taxAmount(taxAmount.setScale(2, RoundingMode.HALF_UP))
+                .roundOff(roundOff)
                 .grandTotal(grandTotal.setScale(2, RoundingMode.HALF_UP))
                 .earnedPoints(earnedPoints)
                 .redeemedPoints(redeemPoints)
@@ -770,23 +782,28 @@ public class BillService {
                     packPrice = batch.getMrp();
                 }
 
-                BigDecimal unitPrice;
-                BigDecimal lineSubtotal;
+                BigDecimal grossUnitPrice;
+                BigDecimal grossLineTotal;
                 if ("TABLET".equalsIgnoreCase(dispenseUnit) && batchPackSize > 1) {
-                    unitPrice = packPrice.divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP);
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
+                    grossUnitPrice = packPrice.divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP);
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
                 } else if ("STRIP".equalsIgnoreCase(dispenseUnit) && batchPackSize > 1) {
-                    unitPrice = packPrice;
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits).divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP));
+                    grossUnitPrice = packPrice;
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits).divide(BigDecimal.valueOf(batchPackSize), 2, RoundingMode.HALF_UP));
                 } else {
-                    unitPrice = packPrice;
-                    lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
+                    grossUnitPrice = packPrice;
+                    grossLineTotal = grossUnitPrice.multiply(BigDecimal.valueOf(takeUnits)).setScale(2, RoundingMode.HALF_UP);
                 }
 
-                totalAmount = totalAmount.add(lineSubtotal);
-
                 BigDecimal taxRate = medicine.getGstRate() != null ? medicine.getGstRate() : new BigDecimal("5.00");
-                BigDecimal itemTax = lineSubtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal taxMultiplier = BigDecimal.ONE.add(taxRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+
+                // Reduced taxable subtotal and unit price (Tax-Inclusive / MRP-safe)
+                BigDecimal lineSubtotal = grossLineTotal.divide(taxMultiplier, 2, RoundingMode.HALF_UP);
+                BigDecimal unitPrice = lineSubtotal.divide(BigDecimal.valueOf(takeUnits), 2, RoundingMode.HALF_UP);
+                BigDecimal itemTax = grossLineTotal.subtract(lineSubtotal);
+
+                totalAmount = totalAmount.add(lineSubtotal);
                 taxAmount = taxAmount.add(itemTax);
 
                 SalesOrderItem newItem = SalesOrderItem.builder()
@@ -812,8 +829,14 @@ public class BillService {
         if (discountAmount.compareTo(totalAmount) > 0) {
             throw new InvalidBillException("Discount cannot be greater than total amount");
         }
-        BigDecimal grandTotal = totalAmount.add(taxAmount).subtract(discountAmount);
-        if (grandTotal.compareTo(BigDecimal.ZERO) < 0) grandTotal = BigDecimal.ZERO;
+        BigDecimal unroundedGrandTotal = totalAmount.add(taxAmount).subtract(discountAmount);
+        if (unroundedGrandTotal.compareTo(BigDecimal.ZERO) < 0) {
+            unroundedGrandTotal = BigDecimal.ZERO;
+        }
+
+        // Floor to lower whole Rupee, guaranteeing bill never crosses MRP
+        BigDecimal grandTotal = unroundedGrandTotal.setScale(0, RoundingMode.FLOOR).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal roundOff = grandTotal.subtract(unroundedGrandTotal).setScale(2, RoundingMode.HALF_UP);
 
         int newEarnedPoints = 0;
         if (newCustomer != null && grandTotal.compareTo(BigDecimal.ZERO) > 0) {
@@ -825,6 +848,7 @@ public class BillService {
         order.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));
         order.setTaxAmount(taxAmount.setScale(2, RoundingMode.HALF_UP));
         order.setDiscountAmount(discountAmount.setScale(2, RoundingMode.HALF_UP));
+        order.setRoundOff(roundOff);
         order.setGrandTotal(grandTotal.setScale(2, RoundingMode.HALF_UP));
         order.setEarnedPoints(newEarnedPoints);
 
@@ -927,6 +951,7 @@ public class BillService {
                 so.getTotalAmount(),
                 so.getDiscountAmount(),
                 so.getTaxAmount(),
+                so.getRoundOff() != null ? so.getRoundOff() : BigDecimal.ZERO,
                 so.getGrandTotal(),
                 null,
                 null,

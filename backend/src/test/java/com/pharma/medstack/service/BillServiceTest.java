@@ -230,10 +230,12 @@ class BillServiceTest {
 
         BillResponse response = billService.createBill(request, "staff");
 
-        // Subtotal = 200.00, Tax (5% GST) = 10.00, Discount = 20.00 => GrandTotal = 190.00
-        assertEquals(0, new BigDecimal("10.00").compareTo(response.taxAmount()));
-        assertEquals(0, new BigDecimal("190.00").compareTo(response.grandTotal()));
+        // Inclusive GST: Gross = 200.00, Taxable base = 200 / 1.05 = 190.48, GST (5%) = 9.52, Discount = 20.00 => GrandTotal = 180.00
+        assertEquals(0, new BigDecimal("190.48").compareTo(response.totalAmount()));
+        assertEquals(0, new BigDecimal("9.52").compareTo(response.taxAmount()));
+        assertEquals(0, new BigDecimal("180.00").compareTo(response.grandTotal()));
         assertEquals(0, new BigDecimal("20.00").compareTo(response.discountAmount()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(response.roundOff()));
     }
 
     @Test
@@ -260,8 +262,42 @@ class BillServiceTest {
         BillResponse response = billService.createBill(request, "staff");
 
         // Subtotal = 200.00, Tax (0% GST) = 0.00, Discount = 20.00 => GrandTotal = 180.00
+        assertEquals(0, new BigDecimal("200.00").compareTo(response.totalAmount()));
         assertEquals(0, BigDecimal.ZERO.compareTo(response.taxAmount()));
         assertEquals(0, new BigDecimal("180.00").compareTo(response.grandTotal()));
         assertEquals(0, new BigDecimal("20.00").compareTo(response.discountAmount()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(response.roundOff()));
+    }
+
+    @Test
+    void testFloorRounding_neverCrossesMrp() {
+        mockMedicine.setGstRate(new BigDecimal("5.00"));
+        when(userRepository.findByUsernameAndIsDeletedFalse("staff")).thenReturn(Optional.of(mockUser));
+        when(medicineRepository.findByIdAndIsDeletedFalse(medicineId)).thenReturn(Optional.of(mockMedicine));
+        stubCommonSaves();
+
+        InventoryBatch batch = new InventoryBatch();
+        batch.setId(UUID.randomUUID());
+        batch.setMedicine(mockMedicine);
+        batch.setQuantity(10);
+        batch.setExpiryDate(LocalDate.now().plusYears(1));
+        batch.setSellingPrice(new BigDecimal("15.50")); // Gross price 15.50 with odd paise
+
+        when(inventoryBatchRepository.findEligibleBatchesForSale(eq(medicineId), any()))
+                .thenReturn(List.of(batch));
+
+        List<CartItemRequest> items = List.of(new CartItemRequest(medicineId, 1));
+        CreateBillRequest request = new CreateBillRequest(
+                null, null, items, BigDecimal.ZERO, PaymentMethod.CASH, null);
+
+        BillResponse response = billService.createBill(request, "staff");
+
+        // Gross = 15.50, Taxable base = 14.76, GST = 0.74, Unrounded = 15.50
+        // Floor to lower integer = 15.00, roundOff = -0.50
+        assertEquals(0, new BigDecimal("14.76").compareTo(response.totalAmount()));
+        assertEquals(0, new BigDecimal("0.74").compareTo(response.taxAmount()));
+        assertEquals(0, new BigDecimal("15.00").compareTo(response.grandTotal()));
+        assertEquals(0, new BigDecimal("-0.50").compareTo(response.roundOff()));
+        assertTrue(response.grandTotal().compareTo(new BigDecimal("15.50")) <= 0, "Grand total must not cross MRP");
     }
 }

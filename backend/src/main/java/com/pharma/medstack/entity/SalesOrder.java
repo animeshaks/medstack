@@ -56,6 +56,10 @@ public class SalesOrder extends AuditableEntity {
     @Column(name = "grand_total", precision = 14, scale = 2)
     private BigDecimal grandTotal;
 
+    @Column(name = "round_off", precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal roundOff = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus;

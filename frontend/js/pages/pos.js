@@ -149,16 +149,20 @@ export default function renderPOS(container) {
         <!-- Totals & Proceed to Checkout -->
         <div class="cart-totals" id="cartTotals" style="margin-top:auto">
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:6px">
-            <span>Subtotal (<span id="totalUnitsCount">0</span> units)</span>
+            <span>Subtotal (Taxable)</span>
             <span id="subtotalDisplay">₹0.00</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:6px">
             <span>Taxes (GST)</span>
             <span id="taxDisplay">₹0.00</span>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:6px">
             <span>Discount Applied</span>
             <span id="discountDisplay" style="color:var(--danger)">-₹0.00</span>
+          </div>
+          <div id="roundOffRow" style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">
+            <span>Round Off</span>
+            <span id="roundOffDisplay" style="color:var(--text-muted)">₹0.00</span>
           </div>
           <div class="grand-total">
             <span>Grand Total</span>
@@ -447,8 +451,15 @@ function renderCart() {
   }
 
   cartEl.innerHTML = cart.map((item, idx) => {
-    const lineSubtotal = item.unitPrice * item.quantity;
     const isTab = item.isTablet && item.unitsPerPack > 1;
+    const grossUnitPrice = Number(item.unitPrice) || 0;
+    const qty = Number(item.quantity) || 0;
+    const grossLineTotal = grossUnitPrice * qty;
+    const gstRate = Number(item.taxRate != null ? item.taxRate : 5);
+    const taxMult = 1 + (gstRate / 100);
+    const lineTaxable = grossLineTotal / taxMult;
+    const taxableUnitPrice = qty > 0 ? (lineTaxable / qty) : (grossUnitPrice / taxMult);
+    const lineTax = grossLineTotal - lineTaxable;
 
     return `
       <div class="cart-item" style="padding:12px 10px;border-bottom:1px solid var(--border)">
@@ -460,8 +471,8 @@ function renderCart() {
             </div>
             <div style="font-size:0.75rem;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:8px;margin-top:3px">
               <span>Batch: <code style="color:var(--accent)">${item.batchNumber}</code></span>
-              <span>Rate: <strong style="color:var(--text-primary)">₹${Number(item.unitPrice).toFixed(2)}</strong>/${isTab ? 'tab' : 'unit'} ${isTab ? `<span style="color:var(--text-muted)">(₹${item.packPrice.toFixed(2)}/strip of ${item.unitsPerPack})</span>` : ''}</span>
-              <span class="badge ${Number(item.taxRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;font-weight:700">GST ${item.taxRate != null ? item.taxRate : 5}%</span>
+              <span>Rate (Taxable): <strong style="color:var(--text-primary)">₹${taxableUnitPrice.toFixed(2)}</strong>/${isTab ? 'tab' : 'unit'} <span style="color:var(--text-muted);font-size:0.7rem">(MRP ₹${grossUnitPrice.toFixed(2)})</span></span>
+              <span class="badge ${gstRate === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;font-weight:700">GST ${gstRate}% (+₹${lineTax.toFixed(2)})</span>
               <span class="badge ${item.availableTotalUnits > 0 ? 'badge-success' : 'badge-danger'}" style="font-size:0.65rem">
                 Stock: ${item.availableTotalUnits} ${isTab ? 'tabs' : 'units'} (${item.availablePacks} strips + ${item.availableLoose} loose)
               </span>
@@ -493,9 +504,10 @@ function renderCart() {
             <span style="font-size:0.75rem;color:var(--text-muted);min-width:35px">${isTab ? 'tab(s)' : 'unit(s)'}</span>
           </div>
 
-          <!-- Line Subtotal -->
-          <div style="min-width:80px;text-align:right;font-weight:700;color:var(--accent);font-size:0.95rem">
-            ${formatCurrency(lineSubtotal)}
+          <!-- Line Subtotal (Taxable) -->
+          <div style="min-width:85px;text-align:right">
+            <div style="font-weight:700;color:var(--accent);font-size:0.95rem">${formatCurrency(lineTaxable)}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted)">Incl: ${formatCurrency(grossLineTotal)}</div>
           </div>
         </div>
       </div>
@@ -569,12 +581,22 @@ function renderCart() {
 // ── Reactive Totals Calculation ───────────────────────────────────────────────
 function updateTotals() {
   const totalUnits = cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-  const subtotal = cart.reduce((s, i) => s + ((Number(i.unitPrice) || 0) * (Number(i.quantity) || 0)), 0);
-  const tax = cart.reduce((s, i) => {
-    const lineSubtotal = (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0);
+  
+  let taxableSubtotalSum = 0;
+  let totalTax = 0;
+  cart.forEach(i => {
+    const grossPrice = Number(i.unitPrice) || 0;
+    const grossLine = grossPrice * (Number(i.quantity) || 0);
     const rate = Number(i.taxRate != null ? i.taxRate : 5);
-    return s + (lineSubtotal * rate / 100);
-  }, 0);
+    const taxMult = 1 + (rate / 100);
+    const lineTaxable = grossLine / taxMult;
+    const lineTax = grossLine - lineTaxable;
+    taxableSubtotalSum += lineTaxable;
+    totalTax += lineTax;
+  });
+
+  const subtotal = taxableSubtotalSum;
+  const tax = totalTax;
 
   // Enforce 10% rule on reward points redemption
   const maxAllowedPoints = Math.floor(subtotal * 0.10);
@@ -597,7 +619,10 @@ function updateTotals() {
   // Total discount = manual discount + redeemed points (₹1 per point)
   discount = manualDisc + redeemPointsApplied;
 
-  const grandTotal = Math.max(0, subtotal + tax - discount);
+  const unroundedGrandTotal = Math.max(0, subtotal + tax - discount);
+  // Floor to lower whole Rupee, guaranteeing bill never crosses MRP
+  const grandTotal = Math.floor(unroundedGrandTotal);
+  const roundOff = grandTotal - unroundedGrandTotal;
   const pointsToEarn = Math.floor(grandTotal / 100);
 
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -605,6 +630,7 @@ function updateTotals() {
   set('subtotalDisplay', formatCurrency(subtotal));
   set('taxDisplay', formatCurrency(tax));
   set('discountDisplay', discount > 0 ? `-${formatCurrency(discount)}` : '₹0.00');
+  set('roundOffDisplay', formatCurrency(roundOff));
   set('grandTotalDisplay', formatCurrency(grandTotal));
 
   const notice = document.getElementById('pointsRedeemedNotice');
@@ -841,13 +867,35 @@ async function openCheckoutModal() {
     return;
   }
 
-  const subtotal = cart.reduce((s, i) => s + ((Number(i.unitPrice) || 0) * (Number(i.quantity) || 0)), 0);
-  const tax = cart.reduce((s, i) => {
-    const lineSubtotal = (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0);
-    const rate = Number(i.taxRate != null ? i.taxRate : 5);
-    return s + (lineSubtotal * rate / 100);
-  }, 0);
-  const grandTotal = Math.max(0, subtotal + tax - discount);
+  let taxableSubtotalSum = 0;
+  let totalTax = 0;
+  const itemCalculations = cart.map(it => {
+    const grossPrice = Number(it.unitPrice) || 0;
+    const qty = Number(it.quantity) || 0;
+    const grossLine = grossPrice * qty;
+    const rate = Number(it.taxRate != null ? it.taxRate : 5);
+    const taxMult = 1 + (rate / 100);
+    const lineTaxable = grossLine / taxMult;
+    const taxableUnit = qty > 0 ? (lineTaxable / qty) : (grossPrice / taxMult);
+    const lineTax = grossLine - lineTaxable;
+    taxableSubtotalSum += lineTaxable;
+    totalTax += lineTax;
+    return {
+      ...it,
+      grossPrice,
+      grossLine,
+      rate,
+      lineTaxable,
+      taxableUnit,
+      lineTax
+    };
+  });
+
+  const subtotal = taxableSubtotalSum;
+  const tax = totalTax;
+  const unroundedGrandTotal = Math.max(0, subtotal + tax - discount);
+  const grandTotal = Math.floor(unroundedGrandTotal);
+  const roundOff = grandTotal - unroundedGrandTotal;
   const totalUnits = cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
   const customerName = customerMode === 'registered' ? (selectedCustomer?.name || 'Registered Customer') : (walkinName || 'Walk-in Customer');
@@ -897,20 +945,20 @@ async function openCheckoutModal() {
                 <th>Medicine</th>
                 <th style="text-align:center">Batch</th>
                 <th style="text-align:center">Qty</th>
-                <th style="text-align:right">Rate</th>
+                <th style="text-align:right">Rate (Taxable)</th>
                 <th style="text-align:center">GST</th>
                 <th style="text-align:right">Subtotal</th>
               </tr>
             </thead>
             <tbody>
-              ${cart.map(it => `
+              ${itemCalculations.map(it => `
                 <tr>
                   <td><strong>${it.medicineName}</strong></td>
                   <td style="text-align:center"><code>${it.batchNumber}</code></td>
                   <td style="text-align:center"><strong>${it.quantity}</strong> ${it.isTablet ? 'tab(s)' : 'unit(s)'}</td>
-                  <td style="text-align:right">₹${Number(it.unitPrice).toFixed(2)}</td>
-                  <td style="text-align:center"><span class="badge ${Number(it.taxRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.7rem;font-weight:700">${it.taxRate != null ? it.taxRate : 5}%</span></td>
-                  <td style="text-align:right"><strong>${formatCurrency(it.unitPrice * it.quantity)}</strong></td>
+                  <td style="text-align:right">₹${it.taxableUnit.toFixed(2)} <span style="font-size:0.7rem;color:var(--text-muted)">(MRP ₹${it.grossPrice.toFixed(2)})</span></td>
+                  <td style="text-align:center"><span class="badge ${it.rate === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.7rem;font-weight:700">${it.rate}% (+₹${it.lineTax.toFixed(2)})</span></td>
+                  <td style="text-align:right"><strong>${formatCurrency(it.lineTaxable)}</strong></td>
                 </tr>
               `).join('')}
             </tbody>
@@ -918,15 +966,16 @@ async function openCheckoutModal() {
         </div>
 
         <!-- Financial Summary Banner -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);flex-wrap:wrap;gap:10px">
           <div style="font-size:0.85rem;color:var(--text-secondary)">
-            <span>Subtotal: <strong>${formatCurrency(subtotal)}</strong></span> · 
+            <span>Subtotal (Taxable): <strong>${formatCurrency(subtotal)}</strong></span> · 
             <span>Taxes (GST): <strong style="color:var(--info)">${formatCurrency(tax)}</strong></span> · 
             <span>Discount: <strong style="color:var(--danger)">-${formatCurrency(discount)}</strong></span> · 
+            <span>Round Off: <strong style="color:var(--text-muted)">${formatCurrency(roundOff)}</strong></span> · 
             <span>Items: <strong>${cart.length} (${totalUnits} units)</strong></span>
           </div>
           <div style="text-align:right">
-            <span style="font-size:0.8rem;color:var(--text-muted);display:block">TOTAL BILL AMOUNT</span>
+            <span style="font-size:0.8rem;color:var(--text-muted);display:block">TOTAL (ROUND FIGURE)</span>
             <span style="font-size:1.5rem;font-weight:800;color:var(--accent)">${formatCurrency(grandTotal)}</span>
           </div>
         </div>

@@ -446,9 +446,17 @@ export default async function renderBills(container) {
     };
 
     const updateEditTotals = () => {
-      const sub = editItems.reduce((s, it) => s + (it.unitPrice * it.quantity), 0);
-      const tax = editItems.reduce((s, it) => s + (it.unitPrice * it.quantity * (it.taxRate != null ? it.taxRate : 5) / 100), 0);
-      const grand = Math.max(0, sub + tax - editDiscount);
+      let taxableSubtotalSum = 0;
+      let totalTax = 0;
+      editItems.forEach(it => {
+        const rate = Number(it.taxRate != null ? it.taxRate : 5);
+        const lineTaxable = (Number(it.unitPrice) || 0) * (Number(it.quantity) || 0);
+        const lineTax = lineTaxable * (rate / 100);
+        taxableSubtotalSum += lineTaxable;
+        totalTax += lineTax;
+      });
+      const unrounded = Math.max(0, taxableSubtotalSum + totalTax - editDiscount);
+      const grand = Math.floor(unrounded);
       const el = document.getElementById('editGrandTotalDisplay');
       if (el) el.textContent = formatCurrency(grand);
     };

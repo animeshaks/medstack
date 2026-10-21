@@ -231,7 +231,7 @@ export function renderInvoiceHtml(bill, settings = {}) {
 
         <div style="min-width:240px;display:flex;flex-direction:column;gap:5px;font-size:0.85rem">
           <div style="display:flex;justify-content:space-between">
-            <span style="color:var(--text-muted)">Gross Subtotal:</span>
+            <span style="color:var(--text-muted)">Subtotal (Taxable):</span>
             <span>${formatCurrency(bill.totalAmount)}</span>
           </div>
           <div style="display:flex;justify-content:space-between">
@@ -248,8 +248,13 @@ export function renderInvoiceHtml(bill, settings = {}) {
             <span>Points Redeemed:</span>
             <span>-${bill.redeemedPoints} pts</span>
           </div>` : ''}
+          ${bill.roundOff && Number(bill.roundOff) !== 0 ? `
+          <div style="display:flex;justify-content:space-between;color:var(--text-muted)">
+            <span>Round Off:</span>
+            <span>${formatCurrency(bill.roundOff)}</span>
+          </div>` : ''}
           <div style="display:flex;justify-content:space-between;font-size:1.15rem;font-weight:700;color:var(--accent);margin-top:6px;border-top:1px solid var(--border-bright);padding-top:6px">
-            <span>Net Payable:</span>
+            <span>Net Payable (Round Figure):</span>
             <span>${formatCurrency(bill.grandTotal)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.95rem;color:var(--text-primary);margin-top:4px">
@@ -593,7 +598,7 @@ export function printInvoice(bill, settings = {}) {
 
           <table class="totals-table">
             <tr>
-              <td style="color:#4b5563">Subtotal:</td>
+              <td style="color:#4b5563">Subtotal (Taxable):</td>
               <td style="text-align:right;font-weight:600">₹${Number(bill.totalAmount).toFixed(2)}</td>
             </tr>
             <tr>
@@ -605,8 +610,13 @@ export function printInvoice(bill, settings = {}) {
               <td style="color:#dc2626">Discount:</td>
               <td style="text-align:right;color:#dc2626;font-weight:600">-₹${Number(bill.discountAmount).toFixed(2)}</td>
             </tr>` : ''}
+            ${bill.roundOff && Number(bill.roundOff) !== 0 ? `
+            <tr>
+              <td style="color:#4b5563">Round Off:</td>
+              <td style="text-align:right;font-weight:600">₹${Number(bill.roundOff).toFixed(2)}</td>
+            </tr>` : ''}
             <tr class="grand-total-row">
-              <td>Net Payable:</td>
+              <td>Net Payable (Round Figure):</td>
               <td style="text-align:right">₹${Number(bill.grandTotal).toFixed(2)}</td>
             </tr>
             <tr>

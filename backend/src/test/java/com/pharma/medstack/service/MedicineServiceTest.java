@@ -41,7 +41,27 @@ class MedicineServiceTest {
 
         assertNotNull(response);
         assertEquals("Dolo", response.name());
+        assertEquals(0, new java.math.BigDecimal("5.00").compareTo(response.gstRate()));
         verify(medicineRepository, times(1)).save(any(Medicine.class));
+    }
+
+    @Test
+    void testCreateMedicine_condomZeroGst_success() {
+        MedicineRequest request = new MedicineRequest(
+                "Durex Condoms", "Condom", "Contraceptive", "Reckitt", "4014", "E1",
+                false, 20, 3, "Contraceptive", "ADULT", java.math.BigDecimal.ZERO);
+
+        Medicine medicine = new Medicine();
+        medicine.setId(UUID.randomUUID());
+        medicine.setName(request.name());
+        medicine.setGstRate(java.math.BigDecimal.ZERO);
+
+        when(medicineRepository.save(any(Medicine.class))).thenReturn(medicine);
+
+        MedicineResponse response = medicineService.createMedicine(request);
+
+        assertNotNull(response);
+        assertEquals(0, java.math.BigDecimal.ZERO.compareTo(response.gstRate()));
     }
 
     @Test

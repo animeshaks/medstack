@@ -42,7 +42,18 @@ export default function renderMedicines(container) {
         { value: 'CREAM', label: 'CREAM' },
         { value: 'DROPS', label: 'DROPS' },
         { value: 'INHALER', label: 'INHALER' },
-        { value: 'POWDER', label: 'POWDER' }
+        { value: 'POWDER', label: 'POWDER' },
+        { value: 'OTC', label: 'OTC (General / Contraceptives)' }
+      ]
+    },
+    {
+      name: 'gstRate', label: 'GST Tax Rate', type: 'select', required: true,
+      options: [
+        { value: '5', label: '5% (Standard Medicines & Formulations — Default)' },
+        { value: '0', label: '0% (Exempted: Condoms, Contraceptives, Human Blood)' },
+        { value: '12', label: '12% (Medical Devices, Diagnostic Kits, Bandages)' },
+        { value: '18', label: '18% (Disinfectants, Sanitizers, Food Supplements)' },
+        { value: '28', label: '28% (Luxury / Others)' }
       ]
     },
     {
@@ -78,6 +89,15 @@ export default function renderMedicines(container) {
       key: 'category',
       label: 'Category',
       render: (val, row) => `${badge(val, 'info')}${row.unitsPerPack > 1 ? `<br><small style="color:var(--accent);font-weight:600">${row.unitsPerPack} tabs/strip</small>` : ''}`
+    },
+    {
+      key: 'gstRate',
+      label: 'GST %',
+      render: (val) => {
+        const rate = val != null ? Number(val) : 5;
+        const badgeClass = rate === 0 ? 'badge-success' : 'badge-secondary';
+        return `<span class="badge ${badgeClass}" style="font-size:0.75rem;font-weight:700">${rate}%</span>`;
+      }
     },
     {
       key: 'symptoms',
@@ -233,7 +253,7 @@ export default function renderMedicines(container) {
 
   const openAddModal = () => {
     const fields = getFormFields();
-    const formHtml = `<form id="addMedForm">${buildFormHtml(fields, { minStockAlertLevel: 10, unitsPerPack: 1, targetAgeGroup: 'ALL' })}</form>`;
+    const formHtml = `<form id="addMedForm">${buildFormHtml(fields, { minStockAlertLevel: 10, unitsPerPack: 1, targetAgeGroup: 'ALL', gstRate: '5' })}</form>`;
 
     const modal = showModal({
       title: 'Add New Medicine',
@@ -251,6 +271,7 @@ export default function renderMedicines(container) {
             data.unitsPerPack = Number(data.unitsPerPack) || 1;
             data.symptoms = data.symptoms ? data.symptoms.trim() : '';
             data.targetAgeGroup = data.targetAgeGroup || 'ALL';
+            data.gstRate = Number(data.gstRate != null ? data.gstRate : 5);
 
             try {
               const res = await medicineService.create(data);
@@ -277,7 +298,8 @@ export default function renderMedicines(container) {
     const fields = getFormFields();
     const formHtml = `<form id="editMedForm">${buildFormHtml(fields, {
       ...med,
-      targetAgeGroup: med.targetAgeGroup || 'ALL'
+      targetAgeGroup: med.targetAgeGroup || 'ALL',
+      gstRate: med.gstRate != null ? String(med.gstRate) : '5'
     })}</form>`;
 
     const modal = showModal({
@@ -296,6 +318,7 @@ export default function renderMedicines(container) {
             data.unitsPerPack = Number(data.unitsPerPack) || 1;
             data.symptoms = data.symptoms ? data.symptoms.trim() : '';
             data.targetAgeGroup = data.targetAgeGroup || 'ALL';
+            data.gstRate = Number(data.gstRate != null ? data.gstRate : 5);
 
             try {
               const res = await medicineService.update(med.id, data);

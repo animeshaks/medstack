@@ -12,6 +12,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +40,7 @@ public class MedicineService {
         medicine.setUnitsPerPack(request.getUnitsPerPackOrDefault());
         medicine.setSymptoms(request.symptoms());
         medicine.setTargetAgeGroup(request.getTargetAgeGroupOrDefault());
+        medicine.setGstRate(request.getGstRateOrDefault());
 
         medicine = medicineRepository.save(medicine);
         return mapToResponse(medicine);
@@ -103,6 +105,7 @@ public class MedicineService {
         medicine.setUnitsPerPack(request.getUnitsPerPackOrDefault());
         medicine.setSymptoms(request.symptoms());
         medicine.setTargetAgeGroup(request.getTargetAgeGroupOrDefault());
+        medicine.setGstRate(request.getGstRateOrDefault());
 
         medicine = medicineRepository.save(medicine);
         return mapToResponse(medicine);
@@ -129,6 +132,7 @@ public class MedicineService {
                 medicine.getUnitsPerPack(),
                 medicine.getSymptoms(),
                 medicine.getTargetAgeGroup() != null ? medicine.getTargetAgeGroup() : "ALL",
+                medicine.getGstRate() != null ? medicine.getGstRate() : new BigDecimal("5.00"),
                 medicine.getCreatedAt()
         );
     }

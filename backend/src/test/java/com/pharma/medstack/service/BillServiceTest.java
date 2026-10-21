@@ -230,6 +230,37 @@ class BillServiceTest {
 
         BillResponse response = billService.createBill(request, "staff");
 
+        // Subtotal = 200.00, Tax (5% GST) = 10.00, Discount = 20.00 => GrandTotal = 190.00
+        assertEquals(0, new BigDecimal("10.00").compareTo(response.taxAmount()));
+        assertEquals(0, new BigDecimal("190.00").compareTo(response.grandTotal()));
+        assertEquals(0, new BigDecimal("20.00").compareTo(response.discountAmount()));
+    }
+
+    @Test
+    void testExemptedGstCalculation_condomsZeroGst() {
+        mockMedicine.setGstRate(BigDecimal.ZERO); // 0% GST for condoms/contraceptives
+        when(userRepository.findByUsernameAndIsDeletedFalse("staff")).thenReturn(Optional.of(mockUser));
+        when(medicineRepository.findByIdAndIsDeletedFalse(medicineId)).thenReturn(Optional.of(mockMedicine));
+        stubCommonSaves();
+
+        InventoryBatch batch = new InventoryBatch();
+        batch.setId(UUID.randomUUID());
+        batch.setMedicine(mockMedicine);
+        batch.setQuantity(10);
+        batch.setExpiryDate(LocalDate.now().plusYears(1));
+        batch.setSellingPrice(new BigDecimal("100.00"));
+
+        when(inventoryBatchRepository.findEligibleBatchesForSale(eq(medicineId), any()))
+                .thenReturn(List.of(batch));
+
+        List<CartItemRequest> items = List.of(new CartItemRequest(medicineId, 2));
+        CreateBillRequest request = new CreateBillRequest(
+                null, null, items, new BigDecimal("20.00"), PaymentMethod.CASH, null);
+
+        BillResponse response = billService.createBill(request, "staff");
+
+        // Subtotal = 200.00, Tax (0% GST) = 0.00, Discount = 20.00 => GrandTotal = 180.00
+        assertEquals(0, BigDecimal.ZERO.compareTo(response.taxAmount()));
         assertEquals(0, new BigDecimal("180.00").compareTo(response.grandTotal()));
         assertEquals(0, new BigDecimal("20.00").compareTo(response.discountAmount()));
     }

@@ -156,7 +156,7 @@ public class BillService {
 
                 totalAmount = totalAmount.add(lineSubtotal);
 
-                BigDecimal taxRate = BigDecimal.ZERO;
+                BigDecimal taxRate = medicine.getGstRate() != null ? medicine.getGstRate() : new BigDecimal("5.00");
                 BigDecimal itemTax = lineSubtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 taxAmount = taxAmount.add(itemTax);
 
@@ -785,7 +785,7 @@ public class BillService {
 
                 totalAmount = totalAmount.add(lineSubtotal);
 
-                BigDecimal taxRate = BigDecimal.ZERO;
+                BigDecimal taxRate = medicine.getGstRate() != null ? medicine.getGstRate() : new BigDecimal("5.00");
                 BigDecimal itemTax = lineSubtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 taxAmount = taxAmount.add(itemTax);
 

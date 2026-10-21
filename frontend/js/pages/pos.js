@@ -153,7 +153,7 @@ export default function renderPOS(container) {
             <span id="subtotalDisplay">₹0.00</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:6px">
-            <span>Tax (included)</span>
+            <span>Taxes (GST)</span>
             <span id="taxDisplay">₹0.00</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">
@@ -301,6 +301,7 @@ function setupMedicineSearch() {
             ${m.symptoms ? `<div style="font-size:0.72rem;color:var(--accent);margin-top:2px">🩺 <em>${m.symptoms}</em></div>` : ''}
           </div>
           <div style="display:flex;gap:6px;align-items:center">
+            <span class="badge ${Number(m.gstRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;font-weight:700">GST ${m.gstRate != null ? Number(m.gstRate) : 5}%</span>
             ${m.requiresPrescription ? '<span class="badge badge-warning" style="font-size:0.65rem">Rx</span>' : '<span class="badge badge-secondary" style="font-size:0.65rem">OTC</span>'}
           </div>
         </div>
@@ -393,6 +394,7 @@ async function selectMedicine(med) {
     : packPrice;
 
   // RULE: Selecting 1 as qty means 1 tablet!
+  const gstRate = Number(med.gstRate != null ? med.gstRate : 5);
   cart.push({
     medicineId: med.id,
     medicineName: med.name,
@@ -409,7 +411,7 @@ async function selectMedicine(med) {
     availableLoose: availableLoose,
     availableTotalUnits: availableTotalUnits,
     quantity: 1, // ALWAYS default to 1 tablet / 1 unit!
-    taxRate: 0,
+    taxRate: gstRate,
   });
 
   renderCart();
@@ -459,6 +461,7 @@ function renderCart() {
             <div style="font-size:0.75rem;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:8px;margin-top:3px">
               <span>Batch: <code style="color:var(--accent)">${item.batchNumber}</code></span>
               <span>Rate: <strong style="color:var(--text-primary)">₹${Number(item.unitPrice).toFixed(2)}</strong>/${isTab ? 'tab' : 'unit'} ${isTab ? `<span style="color:var(--text-muted)">(₹${item.packPrice.toFixed(2)}/strip of ${item.unitsPerPack})</span>` : ''}</span>
+              <span class="badge ${Number(item.taxRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;font-weight:700">GST ${item.taxRate != null ? item.taxRate : 5}%</span>
               <span class="badge ${item.availableTotalUnits > 0 ? 'badge-success' : 'badge-danger'}" style="font-size:0.65rem">
                 Stock: ${item.availableTotalUnits} ${isTab ? 'tabs' : 'units'} (${item.availablePacks} strips + ${item.availableLoose} loose)
               </span>
@@ -567,7 +570,11 @@ function renderCart() {
 function updateTotals() {
   const totalUnits = cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
   const subtotal = cart.reduce((s, i) => s + ((Number(i.unitPrice) || 0) * (Number(i.quantity) || 0)), 0);
-  const tax = 0;
+  const tax = cart.reduce((s, i) => {
+    const lineSubtotal = (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0);
+    const rate = Number(i.taxRate != null ? i.taxRate : 5);
+    return s + (lineSubtotal * rate / 100);
+  }, 0);
 
   // Enforce 10% rule on reward points redemption
   const maxAllowedPoints = Math.floor(subtotal * 0.10);
@@ -835,7 +842,11 @@ async function openCheckoutModal() {
   }
 
   const subtotal = cart.reduce((s, i) => s + ((Number(i.unitPrice) || 0) * (Number(i.quantity) || 0)), 0);
-  const tax = 0;
+  const tax = cart.reduce((s, i) => {
+    const lineSubtotal = (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0);
+    const rate = Number(i.taxRate != null ? i.taxRate : 5);
+    return s + (lineSubtotal * rate / 100);
+  }, 0);
   const grandTotal = Math.max(0, subtotal + tax - discount);
   const totalUnits = cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
@@ -887,6 +898,7 @@ async function openCheckoutModal() {
                 <th style="text-align:center">Batch</th>
                 <th style="text-align:center">Qty</th>
                 <th style="text-align:right">Rate</th>
+                <th style="text-align:center">GST</th>
                 <th style="text-align:right">Subtotal</th>
               </tr>
             </thead>
@@ -897,6 +909,7 @@ async function openCheckoutModal() {
                   <td style="text-align:center"><code>${it.batchNumber}</code></td>
                   <td style="text-align:center"><strong>${it.quantity}</strong> ${it.isTablet ? 'tab(s)' : 'unit(s)'}</td>
                   <td style="text-align:right">₹${Number(it.unitPrice).toFixed(2)}</td>
+                  <td style="text-align:center"><span class="badge ${Number(it.taxRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.7rem;font-weight:700">${it.taxRate != null ? it.taxRate : 5}%</span></td>
                   <td style="text-align:right"><strong>${formatCurrency(it.unitPrice * it.quantity)}</strong></td>
                 </tr>
               `).join('')}
@@ -908,6 +921,7 @@ async function openCheckoutModal() {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
           <div style="font-size:0.85rem;color:var(--text-secondary)">
             <span>Subtotal: <strong>${formatCurrency(subtotal)}</strong></span> · 
+            <span>Taxes (GST): <strong style="color:var(--info)">${formatCurrency(tax)}</strong></span> · 
             <span>Discount: <strong style="color:var(--danger)">-${formatCurrency(discount)}</strong></span> · 
             <span>Items: <strong>${cart.length} (${totalUnits} units)</strong></span>
           </div>

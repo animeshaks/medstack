@@ -105,7 +105,9 @@ export function renderInvoiceHtml(bill, settings = {}) {
     ? payments.map(p => `${p.paymentMethod} (₹${Number(p.amount).toFixed(2)})`).join(', ')
     : (bill.paymentStatus || 'PAID');
 
-  const itemsHtml = (bill.items || []).map((it, idx) => `
+  const itemsHtml = (bill.items || []).map((it, idx) => {
+    const gstRate = it.taxRate != null ? Number(it.taxRate) : 5;
+    return `
     <tr>
       <td style="text-align:center;color:var(--text-muted)">${idx + 1}</td>
       <td>
@@ -117,9 +119,13 @@ export function renderInvoiceHtml(bill, settings = {}) {
         <strong>${it.quantity}</strong> ${it.dispenseUnit ? `<span style="font-size:0.75rem;color:var(--text-muted)">${it.dispenseUnit.toLowerCase()}</span>` : ''}
       </td>
       <td style="text-align:right">${formatCurrency(it.unitPrice)}</td>
+      <td style="text-align:center">
+        <span class="badge ${gstRate === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.7rem;font-weight:700">${gstRate}%</span>
+      </td>
       <td style="text-align:right"><strong>${formatCurrency(it.subtotal)}</strong></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   return `
     <div class="invoice-container" style="background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius);padding:20px;font-family:var(--font-mono);max-width:100%">
@@ -172,11 +178,12 @@ export function renderInvoiceHtml(bill, settings = {}) {
               <th style="text-align:center">Expiry</th>
               <th style="text-align:center">Qty</th>
               <th style="text-align:right">Price</th>
+              <th style="text-align:center">GST</th>
               <th style="text-align:right">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            ${itemsHtml || '<tr><td colspan="7" style="text-align:center">No items</td></tr>'}
+            ${itemsHtml || '<tr><td colspan="8" style="text-align:center">No items</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -290,7 +297,9 @@ export function printInvoice(bill, settings = {}) {
     ? payments.map(p => `${p.paymentMethod} (₹${Number(p.amount).toFixed(2)})`).join(', ')
     : (bill.paymentStatus || 'PAID');
 
-  const itemsHtml = (bill.items || []).map((it, idx) => `
+  const itemsHtml = (bill.items || []).map((it, idx) => {
+    const gstRate = it.taxRate != null ? Number(it.taxRate) : 5;
+    return `
     <tr>
       <td style="text-align:center;width:35px">${idx + 1}</td>
       <td style="font-weight:600">
@@ -300,9 +309,11 @@ export function printInvoice(bill, settings = {}) {
       <td style="text-align:center">${it.expiryDate ? formatDate(it.expiryDate) : '—'}</td>
       <td style="text-align:center;font-weight:bold">${it.quantity}</td>
       <td style="text-align:right">₹${Number(it.unitPrice).toFixed(2)}</td>
+      <td style="text-align:center;font-weight:600">${gstRate}%</td>
       <td style="text-align:right;font-weight:bold">₹${Number(it.subtotal).toFixed(2)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
@@ -540,6 +551,7 @@ export function printInvoice(bill, settings = {}) {
               <th style="text-align:center">Expiry</th>
               <th style="text-align:center;width:45px">Qty</th>
               <th style="text-align:right;width:75px">Rate (₹)</th>
+              <th style="text-align:center;width:55px">GST</th>
               <th style="text-align:right;width:85px">Amount (₹)</th>
             </tr>
           </thead>

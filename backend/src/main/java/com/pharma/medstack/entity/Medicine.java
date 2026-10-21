@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -53,4 +54,7 @@ public class Medicine extends AuditableEntity {
 
     @Column(name = "target_age_group")
     private String targetAgeGroup = "ALL";
+
+    @Column(name = "gst_rate", precision = 5, scale = 2, nullable = false)
+    private BigDecimal gstRate = new BigDecimal("5.00");
 }

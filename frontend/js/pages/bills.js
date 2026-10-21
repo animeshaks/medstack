@@ -272,6 +272,7 @@ export default async function renderBills(container) {
       batchNumber: i.batchNumber,
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
+      taxRate: i.taxRate != null ? Number(i.taxRate) : 5,
       dispenseUnit: i.dispenseUnit || 'UNIT',
       packSize: i.packSize || 1,
     }));
@@ -298,6 +299,7 @@ export default async function renderBills(container) {
                   <th>Medicine</th>
                   <th style="text-align:center">Batch</th>
                   <th style="text-align:right">Rate</th>
+                  <th style="text-align:center">GST</th>
                   <th style="text-align:center">Qty</th>
                   <th style="text-align:right">Subtotal</th>
                   <th style="text-align:center">Remove</th>
@@ -378,7 +380,7 @@ export default async function renderBills(container) {
       if (!tbody) return;
 
       if (editItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No items remaining in bill.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No items remaining in bill.</td></tr>';
         updateEditTotals();
         return;
       }
@@ -388,6 +390,7 @@ export default async function renderBills(container) {
           <td><strong>${it.medicineName}</strong></td>
           <td style="text-align:center"><code>${it.batchNumber}</code></td>
           <td style="text-align:right">₹${it.unitPrice.toFixed(2)}</td>
+          <td style="text-align:center"><span class="badge ${Number(it.taxRate) === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.7rem;font-weight:700">${it.taxRate != null ? it.taxRate : 5}%</span></td>
           <td style="text-align:center">
             <div style="display:flex;align-items:center;justify-content:center;gap:4px">
               <button type="button" class="btn btn-secondary btn-sm" data-edit-dec="${idx}" style="padding:2px 6px">−</button>
@@ -444,7 +447,8 @@ export default async function renderBills(container) {
 
     const updateEditTotals = () => {
       const sub = editItems.reduce((s, it) => s + (it.unitPrice * it.quantity), 0);
-      const grand = Math.max(0, sub - editDiscount);
+      const tax = editItems.reduce((s, it) => s + (it.unitPrice * it.quantity * (it.taxRate != null ? it.taxRate : 5) / 100), 0);
+      const grand = Math.max(0, sub + tax - editDiscount);
       const el = document.getElementById('editGrandTotalDisplay');
       if (el) el.textContent = formatCurrency(grand);
     };

@@ -41,6 +41,14 @@ public class JwtTokenService {
         return claimsResolver.apply(claims);
     }
 
+    public String extractRole(String token) {
+        try {
+            return extractClaim(token, claims -> claims.get("roles", String.class));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
         String roles = userDetails.getAuthorities().stream()

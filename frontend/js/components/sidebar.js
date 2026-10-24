@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { route: '/dues',       icon: '📒',  label: 'Customer Dues', perm: 'create_bills' },
   { route: '/expenses',   icon: '💸',  label: 'Expenses',    perm: 'manage_expenses' },
   { route: '/reports',    icon: '📊',  label: 'Reports',     perm: 'view_reports' },
+  { route: '/audit-logs', icon: '📜',  label: 'Activity Logs', perm: 'view_audit_logs' },
   { route: '/users',      icon: '👥',  label: 'Users',       perm: 'manage_users' },
   { route: '/settings',   icon: '⚙️',  label: 'Settings',    always: true },
 ];

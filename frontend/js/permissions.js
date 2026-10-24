@@ -5,11 +5,11 @@ const ROLE_PERMISSIONS = {
   ADMIN: ['manage_users', 'manage_medicines', 'manage_inventory', 'manage_purchases',
           'manage_customers', 'manage_doctors', 'manage_suppliers', 'create_bills', 'edit_bills',
           'view_reports', 'view_financial', 'manage_expenses', 'view_margins', 'manage_settings',
-          'manage_old_stock'],
+          'manage_old_stock', 'view_audit_logs'],
   OWNER: ['manage_users', 'manage_medicines', 'manage_inventory', 'manage_purchases',
           'manage_customers', 'manage_doctors', 'manage_suppliers', 'create_bills', 'edit_bills',
           'view_reports', 'view_financial', 'manage_expenses', 'view_margins', 'manage_settings',
-          'manage_old_stock'],
+          'manage_old_stock', 'view_audit_logs'],
   STAFF: ['create_bills', 'view_inventory', 'manage_customers', 'view_doctors', 'view_settings'],
 };
 

@@ -5,4 +5,6 @@ target/
 *.iml
 node_modules/
 *.log
+logs/
+backend/logs/
 .DS_Store

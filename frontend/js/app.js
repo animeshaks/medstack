@@ -24,6 +24,7 @@ import renderSettings from './pages/settings.js';
 import renderCustomerDetail from './pages/customerDetail.js';
 import renderSupplierDetail from './pages/supplierDetail.js';
 import renderOldStock from './pages/oldStock.js';
+import renderAuditLogs from './pages/auditLogs.js';
 import { can } from './permissions.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -197,6 +198,14 @@ registerRoute('/bills',            (params) => loadPage((container) => renderBil
 registerRoute('/dues',             () => loadPage(renderDues,             'Customer Dues & Ledger'));
 registerRoute('/expenses',         () => loadPage(renderExpenses,         'Expenses'));
 registerRoute('/reports',          () => loadPage(renderReports,          'Reports'));
+registerRoute('/audit-logs',       () => {
+  if (!can('view_audit_logs')) {
+    showToast('Access denied: Activity Logs are restricted to Owner/Admin', 'error');
+    navigate('/dashboard');
+    return;
+  }
+  loadPage(renderAuditLogs, 'Activity & Audit Logs');
+});
 registerRoute('/users',            () => loadPage(renderUsers,            'Users'));
 registerRoute('/settings',         () => loadPage(renderSettings,         'Store Settings'));
 

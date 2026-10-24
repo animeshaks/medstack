@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <springProperty scope="context" name="AUDIT_LOG_DIR" source="medstack.audit.log-dir" defaultValue="logs/audit"/>
+    <springProperty scope="context" name="AUDIT_LOG_FILE" source="medstack.audit.file-name" defaultValue="activity-audit.log"/>
+    <springProperty scope="context" name="AUDIT_RETENTION_DAYS" source="medstack.audit.retention-days" defaultValue="30"/>
+    <springProperty scope="context" name="AUDIT_MAX_FILE_SIZE" source="medstack.audit.max-file-size" defaultValue="20MB"/>
+    <springProperty scope="context" name="AUDIT_TOTAL_SIZE_CAP" source="medstack.audit.total-size-cap" defaultValue="1GB"/>
+
+    <!-- Standard Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %cyan([%thread]) %yellow(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Dedicated Audit Rolling File Appender with Configurable Retention -->
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${AUDIT_LOG_DIR}/${AUDIT_LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- Daily rolling archive with index -->
+            <fileNamePattern>${AUDIT_LOG_DIR}/archive/activity-audit-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <!-- Retain up to configured number of days / weeks (default 30 days) -->
+            <maxHistory>${AUDIT_RETENTION_DAYS}</maxHistory>
+            <maxFileSize>${AUDIT_MAX_FILE_SIZE}</maxFileSize>
+            <totalSizeCap>${AUDIT_TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Dedicated Audit Logger for User Activity & Error Tracing -->
+    <logger name="AUDIT_LOGGER" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Root Application Logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

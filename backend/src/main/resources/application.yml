@@ -33,6 +33,14 @@ medstack:
   jwt:
     secret: ${JWT_SECRET:changeme-minimum-64-chars-secret-for-hmacsha512-algorithm-here}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  audit:
+    enabled: ${AUDIT_ENABLED:true}
+    log-dir: ${AUDIT_LOG_DIR:logs/audit}
+    file-name: ${AUDIT_LOG_FILE:activity-audit.log}
+    retention-days: ${AUDIT_RETENTION_DAYS:30}
+    max-file-size: ${AUDIT_MAX_FILE_SIZE:20MB}
+    total-size-cap: ${AUDIT_TOTAL_SIZE_CAP:1GB}
+    buffer-size: ${AUDIT_BUFFER_SIZE:1000}
 
 springdoc:
   api-docs:

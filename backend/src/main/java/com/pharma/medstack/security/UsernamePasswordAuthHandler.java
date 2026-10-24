@@ -18,15 +18,18 @@ public class UsernamePasswordAuthHandler implements AuthHandler {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
     private final UserRepository userRepository;
+    private final com.pharma.medstack.audit.AuditService auditService;
     private final long expirationMs;
 
     public UsernamePasswordAuthHandler(AuthenticationManager authenticationManager,
                                        JwtTokenService jwtTokenService,
                                        UserRepository userRepository,
+                                       com.pharma.medstack.audit.AuditService auditService,
                                        @Value("${medstack.jwt.expiration-ms}") long expirationMs) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
         this.userRepository = userRepository;
+        this.auditService = auditService;
         this.expirationMs = expirationMs;
     }
 
@@ -46,6 +49,8 @@ public class UsernamePasswordAuthHandler implements AuthHandler {
             String token = jwtTokenService.generateToken(userDetails);
             User user = userRepository.findByUsernameAndIsDeletedFalse(request.username()).orElseThrow();
 
+            auditService.recordBusinessEvent("LOGIN_SUCCESS", user.getUsername(), user.getRole().name(), "SUCCESS", "User logged in successfully", null, null);
+
             return new AuthenticationResult(
                     token,
                     "Bearer",
@@ -54,6 +59,7 @@ public class UsernamePasswordAuthHandler implements AuthHandler {
                     user.getRole().name()
             );
         } catch (Exception e) {
+            auditService.recordBusinessEvent("LOGIN_FAILURE", request.username(), "ANONYMOUS", "FAILURE", "Failed login attempt for username: " + request.username(), "Invalid credentials", null);
             throw new BadCredentialsException("Invalid username or password");
         }
     }

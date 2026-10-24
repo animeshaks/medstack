@@ -12,7 +12,14 @@ async function request(method, path, body = null, options = {}) {
     const { getToken } = await import('./auth.js');
     const token = getToken();
 
-    const headers = { 'Content-Type': 'application/json' };
+    const reqId = 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+    const headers = { 
+      'Content-Type': 'application/json',
+      'X-Request-Id': reqId
+    };
+    if (options && options.action) {
+      headers['X-Client-Action'] = options.action;
+    }
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const config = {
@@ -63,11 +70,13 @@ export const api = {
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   delete: (path) => request('DELETE', path),
-  postForm: async (path, formData) => {
+  postForm: async (path, formData, options = {}) => {
     try {
       const { getToken } = await import('./auth.js');
       const token = getToken();
-      const headers = {};
+      const reqId = 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+      const headers = { 'X-Request-Id': reqId };
+      if (options && options.action) headers['X-Client-Action'] = options.action;
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const resp = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
       if (resp.status === 401) {

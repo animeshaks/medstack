@@ -107,7 +107,10 @@ public class OldStockController {
         String msg = result.errorCount() == 0
                 ? "CSV import completed successfully. " + result.importedCount() + " batches imported."
                 : "CSV validation failed with " + result.errorCount() + " errors. Please fix errors and re-upload.";
-    @PostMapping("/upload-csv-json")
+        return ResponseEntity.ok(ApiResponse.success(result, msg, 200));
+    }
+
+    @PostMapping(value = {"/upload-csv-json", "/upload-csv"}, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<CsvImportResultResponse>> uploadCsvJson(
             @RequestBody CsvUploadRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();

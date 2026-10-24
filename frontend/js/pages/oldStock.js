@@ -256,7 +256,7 @@ export default async function renderOldStock(container) {
       size: 'lg',
       body: `
         <div style="margin-bottom:16px;padding:10px 14px;background:var(--bg-tertiary);border-left:4px solid var(--accent);border-radius:var(--radius);font-size:0.85rem">
-          <strong>Mandatory Fields:</strong> Please fill in all fields marked with <span style="color:var(--danger);font-weight:bold">*</span>. 
+          Please fill in all fields marked with <span style="color:var(--danger);font-weight:bold">*</span>. 
           If the medicine is not already in MedStack, it will be automatically registered into your store's master catalog.
         </div>
 
@@ -268,7 +268,7 @@ export default async function renderOldStock(container) {
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;margin-bottom:16px">
             <div class="form-group" style="grid-column:span 2">
               <label class="form-label" style="font-weight:bold">
-                Medicine Name <span style="color:var(--danger)">* Mandatory</span>
+                Medicine Name <span style="color:var(--danger)">*</span>
               </label>
               <input type="text" name="medicineName" class="form-control" required placeholder="e.g. Paracetamol 650mg, Dolo 650" />
             </div>
@@ -297,19 +297,19 @@ export default async function renderOldStock(container) {
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-bottom:16px">
             <div class="form-group">
               <label class="form-label" style="font-weight:bold">
-                Batch Number <span style="color:var(--danger)">* Mandatory</span>
+                Batch Number <span style="color:var(--danger)">*</span>
               </label>
               <input type="text" name="batchNumber" class="form-control" required placeholder="e.g. B1044, AMX99" />
             </div>
             <div class="form-group">
               <label class="form-label" style="font-weight:bold">
-                Expiry Date <span style="color:var(--danger)">* Mandatory</span>
+                Expiry Date <span style="color:var(--danger)">*</span>
               </label>
               <input type="date" name="expiryDate" class="form-control" required />
             </div>
             <div class="form-group">
               <label class="form-label" style="font-weight:bold">
-                Quantity (Packs / Strips) <span style="color:var(--danger)">* Mandatory</span>
+                Quantity (Packs / Strips) <span style="color:var(--danger)">*</span>
               </label>
               <input type="number" name="quantity" class="form-control" required min="0" placeholder="e.g. 20" />
             </div>
@@ -326,13 +326,13 @@ export default async function renderOldStock(container) {
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-bottom:16px">
             <div class="form-group">
               <label class="form-label" style="font-weight:bold">
-                MRP (₹ per pack) <span style="color:var(--danger)">* Mandatory</span>
+                MRP (₹ per pack) <span style="color:var(--danger)">*</span>
               </label>
               <input type="number" step="0.01" min="0.01" name="mrp" id="addMrpInput" class="form-control" required placeholder="e.g. 30.00" />
             </div>
             <div class="form-group">
               <label class="form-label" style="font-weight:bold">
-                Selling Price (₹ per pack) <span style="color:var(--danger)">* Mandatory</span>
+                Selling Price (₹ per pack) <span style="color:var(--danger)">*</span>
               </label>
               <input type="number" step="0.01" min="0.01" name="sellingPrice" id="addSellingInput" class="form-control" required placeholder="e.g. 28.00" />
               <small style="color:var(--text-muted);font-size:0.7rem">Cannot exceed MRP</small>
@@ -444,12 +444,12 @@ export default async function renderOldStock(container) {
       body: `
         <form id="editOldStockForm">
           <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label" style="font-weight:bold">Batch Number <span style="color:var(--danger)">* Mandatory</span></label>
+            <label class="form-label" style="font-weight:bold">Batch Number <span style="color:var(--danger)">*</span></label>
             <input type="text" name="batchNumber" class="form-control" value="${batch.batchNumber || ''}" required />
           </div>
 
           <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label" style="font-weight:bold">Expiry Date <span style="color:var(--danger)">* Mandatory</span></label>
+            <label class="form-label" style="font-weight:bold">Expiry Date <span style="color:var(--danger)">*</span></label>
             <input type="date" name="expiryDate" class="form-control" value="${batch.expiryDate || ''}" required />
           </div>
 
@@ -584,14 +584,14 @@ export default async function renderOldStock(container) {
           Import existing store medicines and opening inventory in bulk from a spreadsheet or CSV file.
         </div>
 
-        <!-- Mandatory vs Optional Fields Guide -->
+        <!-- Required vs Optional Fields Guide -->
         <div style="border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:16px;background:var(--bg-secondary)">
           <div style="font-weight:bold;margin-bottom:6px;display:flex;align-items:center;gap:6px">
             <span>📋 CSV Columns &amp; Field Requirements</span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.8rem">
             <div style="padding:8px;background:rgba(239, 68, 68, 0.08);border:1px solid rgba(239, 68, 68, 0.2);border-radius:var(--radius)">
-              <strong style="color:var(--danger)">🔴 Mandatory Fields (Required in every row):</strong>
+              <strong style="color:var(--danger)">🔴 Required Fields (*):</strong>
               <ul style="margin:6px 0 0 16px;padding:0;line-height:1.5">
                 <li><code>medicine_name</code> — Name of the medicine</li>
                 <li><code>batch_number</code> — Batch number code</li>

@@ -38,29 +38,29 @@ export default async function renderDashboard(container) {
 
       <div class="kpi-grid">
         ${canViewFinancial ? `
-        <a href="#/bills" class="kpi-card" style="text-decoration:none;cursor:pointer">
+        <a href="#/bills?datePreset=today" class="kpi-card" style="text-decoration:none;cursor:pointer">
           <div class="kpi-icon">💰</div>
-          <div class="kpi-value">${formatCurrency(kpi.todaySalesTotal || 0)}</div>
+          <div class="kpi-value">${formatCurrency(kpi.todaySalesTotal ?? 0)}</div>
           <div class="kpi-label">Today's Revenue ↗</div>
         </a>` : ''}
-        <a href="#/bills" class="kpi-card" style="text-decoration:none;cursor:pointer">
+        <a href="#/bills?datePreset=today" class="kpi-card" style="text-decoration:none;cursor:pointer">
           <div class="kpi-icon">🧾</div>
-          <div class="kpi-value">${kpi.todayBillCount || recentBills.length || 0}</div>
+          <div class="kpi-value">${kpi.todayBillCount ?? 0}</div>
           <div class="kpi-label">Today's Bills ↗</div>
         </a>
         <a href="#/inventory#near" class="kpi-card kpi-warning" style="text-decoration:none;cursor:pointer">
           <div class="kpi-icon">⏰</div>
-          <div class="kpi-value">${kpi.nearExpiryItemCount || nearItems.length || 0}</div>
+          <div class="kpi-value">${kpi.nearExpiryItemCount ?? (nearItems?.length || 0)}</div>
           <div class="kpi-label">Near Expiry (90d) ↗</div>
         </a>
         <a href="#/inventory#expired" class="kpi-card kpi-danger" style="text-decoration:none;cursor:pointer">
           <div class="kpi-icon">⚠️</div>
-          <div class="kpi-value">${kpi.expiredBatchCount || expiredItems.length || 0}</div>
+          <div class="kpi-value">${kpi.expiredBatchCount ?? (expiredItems?.length || 0)}</div>
           <div class="kpi-label">Expired Batches ↗</div>
         </a>
         <a href="#/inventory#low" class="kpi-card kpi-info" style="text-decoration:none;cursor:pointer">
           <div class="kpi-icon">📦</div>
-          <div class="kpi-value">${kpi.lowStockItemCount || lowStockItems.length || 0}</div>
+          <div class="kpi-value">${kpi.lowStockItemCount ?? (lowStockItems?.length || 0)}</div>
           <div class="kpi-label">Low Stock Items ↗</div>
         </a>
       </div>

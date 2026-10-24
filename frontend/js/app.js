@@ -183,7 +183,7 @@ registerRoute('/doctors',          () => loadPage(renderDoctors,          'Docto
 registerRoute('/suppliers',        () => loadPage(renderSuppliers,        'Suppliers'));
 registerRoute('/supplier-detail',  (params) => loadPage((container) => renderSupplierDetail(container, params), 'Supplier Ledger & Orders'));
 registerRoute('/purchases',        () => loadPage(renderPurchases,        'Purchases'));
-registerRoute('/bills',            () => loadPage(renderBills,            'Bills'));
+registerRoute('/bills',            (params) => loadPage((container) => renderBills(container, params), 'Bills'));
 registerRoute('/dues',             () => loadPage(renderDues,             'Customer Dues & Ledger'));
 registerRoute('/expenses',         () => loadPage(renderExpenses,         'Expenses'));
 registerRoute('/reports',          () => loadPage(renderReports,          'Reports'));

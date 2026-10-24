@@ -11,15 +11,84 @@ import { showModal } from '../components/modal.js';
 import { showToast } from '../components/toast.js';
 import { can } from '../permissions.js';
 
-export default async function renderBills(container) {
+const computeBillDateRange = (preset) => {
+  const now = new Date();
+  const formatYMD = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  if (preset === 'today') {
+    const todayStr = formatYMD(now);
+    return { from: todayStr, to: todayStr };
+  }
+  if (preset === 'week') {
+    const dayOfWeek = now.getDay();
+    const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+    return { from: formatYMD(monday), to: formatYMD(now) };
+  }
+  if (preset === 'month') {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from: formatYMD(firstDay), to: formatYMD(lastDay) };
+  }
+  if (preset === 'fy') {
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+    const endYear = startYear + 1;
+    return {
+      from: `${startYear}-04-01`,
+      to: `${endYear}-03-31`
+    };
+  }
+  return { from: '', to: '' };
+};
+
+const toStartOfDayIso = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
+};
+
+const toEndOfDayIso = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
+};
+
+export default async function renderBills(container, params = {}) {
+  if (!params || Object.keys(params).length === 0) {
+    const hash = window.location.hash || '';
+    const qIdx = hash.indexOf('?');
+    if (qIdx !== -1) {
+      params = Object.fromEntries(new URLSearchParams(hash.slice(qIdx + 1)));
+    }
+  }
+
+  let selectedPreset = (params.datePreset || params.preset || 'all').toLowerCase();
+  let { from: initialFrom, to: initialTo } = computeBillDateRange(selectedPreset);
+  if (params.startDate) initialFrom = params.startDate;
+  if (params.endDate) initialTo = params.endDate;
+  if (!initialFrom && !initialTo && selectedPreset !== 'all') {
+    selectedPreset = 'custom';
+  }
+
   let currentPage = 0;
-  let currentSearch = '';
-  let selectedCustomerId = '';
-  let selectedUserId = '';
-  let selectedPaymentStatus = '';
-  let startDate = '';
-  let endDate = '';
-  let rxRequiredOnly = false;
+  let currentSearch = params.search || '';
+  let selectedCustomerId = params.customerId || '';
+  let selectedUserId = params.userId || '';
+  let selectedPaymentStatus = params.paymentStatus || '';
+  let startDate = initialFrom || '';
+  let endDate = initialTo || '';
+  let rxRequiredOnly = params.rxRequiredOnly === 'true' || params.rxRequired === 'true';
   let currentContent = [];
   const pageSize = 15;
 
@@ -37,7 +106,7 @@ export default async function renderBills(container) {
         <!-- Search Box -->
         <div class="search-box" style="flex:1;min-width:200px">
           <span class="search-icon">🔍</span>
-          <input type="text" id="billSearchInput" class="form-control" placeholder="Search by Bill # or customer..." />
+          <input type="text" id="billSearchInput" class="form-control" value="${currentSearch}" placeholder="Search by Bill # or customer..." />
         </div>
 
         <!-- Filter by Customer -->
@@ -57,24 +126,37 @@ export default async function renderBills(container) {
         <!-- Filter by Payment Status -->
         <div style="min-width:150px">
           <select id="filterPaymentStatusSelect" class="form-control" style="font-size:0.85rem">
-            <option value="">— All Payments —</option>
-            <option value="PAID">Paid Only</option>
-            <option value="PARTIAL">Partial Only</option>
-            <option value="PENDING">Pending (Due Only)</option>
+            <option value="" ${!selectedPaymentStatus ? 'selected' : ''}>— All Payments —</option>
+            <option value="PAID" ${selectedPaymentStatus === 'PAID' ? 'selected' : ''}>Paid Only</option>
+            <option value="PARTIAL" ${selectedPaymentStatus === 'PARTIAL' ? 'selected' : ''}>Partial Only</option>
+            <option value="PENDING" ${selectedPaymentStatus === 'PENDING' ? 'selected' : ''}>Pending (Due Only)</option>
           </select>
         </div>
 
         <!-- Filter by Rx Required -->
         <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;font-weight:600;padding:5px 10px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border);user-select:none" title="Filter bills containing prescription medicines">
-          <input type="checkbox" id="filterRxRequired" style="cursor:pointer" />
+          <input type="checkbox" id="filterRxRequired" style="cursor:pointer" ${rxRequiredOnly ? 'checked' : ''} />
           <span>⚕️ Rx Only</span>
         </label>
 
+        <!-- Period Presets -->
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">Period:</span>
+          <div style="display:flex;gap:4px" id="billDatePresets">
+            <button type="button" class="btn btn-sm ${selectedPreset === 'all' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="all">All</button>
+            <button type="button" class="btn btn-sm ${selectedPreset === 'today' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="today">Today</button>
+            <button type="button" class="btn btn-sm ${selectedPreset === 'week' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="week">This Week</button>
+            <button type="button" class="btn btn-sm ${selectedPreset === 'month' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="month">This Month</button>
+            <button type="button" class="btn btn-sm ${selectedPreset === 'fy' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="fy">This FY</button>
+            <button type="button" class="btn btn-sm ${selectedPreset === 'custom' ? 'btn-primary' : 'btn-secondary'} bill-preset-btn" data-preset="custom">Custom</button>
+          </div>
+        </div>
+
         <!-- Date Range Filters -->
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="date" id="filterStartDate" class="form-control" style="font-size:0.8rem;padding:4px 8px;width:auto" title="From Date" />
+        <div id="billDateRangeWrap" style="display:${selectedPreset === 'all' ? 'none' : 'flex'};align-items:center;gap:6px">
+          <input type="date" id="filterStartDate" class="form-control" value="${startDate}" style="font-size:0.8rem;padding:4px 8px;width:auto" title="From Date" />
           <span style="font-size:0.8rem;color:var(--text-muted)">to</span>
-          <input type="date" id="filterEndDate" class="form-control" style="font-size:0.8rem;padding:4px 8px;width:auto" title="To Date" />
+          <input type="date" id="filterEndDate" class="form-control" value="${endDate}" style="font-size:0.8rem;padding:4px 8px;width:auto" title="To Date" />
         </div>
 
         <!-- Reset Button -->
@@ -93,9 +175,11 @@ export default async function renderBills(container) {
   const userSelect = container.querySelector('#filterUserSelect');
   const paySelect = container.querySelector('#filterPaymentStatusSelect');
   const rxCheck = container.querySelector('#filterRxRequired');
+  const dateRangeWrap = container.querySelector('#billDateRangeWrap');
   const startInput = container.querySelector('#filterStartDate');
   const endInput = container.querySelector('#filterEndDate');
   const resetBtn = container.querySelector('#btnResetFilters');
+  const presetBtns = container.querySelectorAll('.bill-preset-btn');
 
   // Populate Customers & Users in background
   try {
@@ -110,6 +194,9 @@ export default async function renderBills(container) {
       const opt = document.createElement('option');
       opt.value = c.id;
       opt.textContent = `${c.name} (${c.phone || 'No phone'})`;
+      if (selectedCustomerId && c.id === selectedCustomerId) {
+        opt.selected = true;
+      }
       custSelect.appendChild(opt);
     });
 
@@ -117,6 +204,9 @@ export default async function renderBills(container) {
       const opt = document.createElement('option');
       opt.value = u.id;
       opt.textContent = `${u.fullName || u.username} (${u.role})`;
+      if (selectedUserId && u.id === selectedUserId) {
+        opt.selected = true;
+      }
       userSelect.appendChild(opt);
     });
   } catch (e) {
@@ -136,8 +226,8 @@ export default async function renderBills(container) {
         userId: selectedUserId || null,
         paymentStatus: selectedPaymentStatus || null,
         rxRequiredOnly: rxRequiredOnly ? true : null,
-        startDate: startDate ? new Date(startDate).toISOString() : null,
-        endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : null
+        startDate: toStartOfDayIso(startDate),
+        endDate: toEndOfDayIso(endDate)
       });
       let { content, page: pageMeta } = extractPage(resp);
       if (rxRequiredOnly) {
@@ -493,14 +583,59 @@ export default async function renderBills(container) {
     loadData(0);
   });
 
+  const updatePresetUI = (preset) => {
+    selectedPreset = preset;
+    presetBtns.forEach(btn => {
+      const p = btn.getAttribute('data-preset');
+      if (p === preset) {
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+      } else {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+      }
+    });
+    if (preset === 'all') {
+      if (dateRangeWrap) dateRangeWrap.style.display = 'none';
+    } else {
+      if (dateRangeWrap) dateRangeWrap.style.display = 'flex';
+    }
+  };
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.getAttribute('data-preset');
+      updatePresetUI(p);
+      if (p === 'all') {
+        startDate = '';
+        endDate = '';
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+        if (window.location.hash.includes('?')) history.replaceState(null, '', '#/bills');
+        loadData(0);
+      } else if (p === 'custom') {
+        // Just show date inputs, let user pick
+      } else {
+        const range = computeBillDateRange(p);
+        startDate = range.from;
+        endDate = range.to;
+        if (startInput) startInput.value = startDate;
+        if (endInput) endInput.value = endDate;
+        loadData(0);
+      }
+    });
+  });
+
   // Wire Date range filters
   startInput?.addEventListener('change', (e) => {
     startDate = e.target.value;
+    updatePresetUI('custom');
     loadData(0);
   });
 
   endInput?.addEventListener('change', (e) => {
     endDate = e.target.value;
+    updatePresetUI('custom');
     loadData(0);
   });
 
@@ -519,13 +654,17 @@ export default async function renderBills(container) {
     startDate = '';
     endDate = '';
     rxRequiredOnly = false;
-    searchInput.value = '';
-    custSelect.value = '';
-    userSelect.value = '';
+    if (searchInput) searchInput.value = '';
+    if (custSelect) custSelect.value = '';
+    if (userSelect) userSelect.value = '';
     if (paySelect) paySelect.value = '';
     if (rxCheck) rxCheck.checked = false;
-    startInput.value = '';
-    endInput.value = '';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    updatePresetUI('all');
+    if (window.location.hash.includes('?')) {
+      history.replaceState(null, '', '#/bills');
+    }
     loadData(0);
   });
 

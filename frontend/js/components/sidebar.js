@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { route: '/pos',        icon: '🖥',  label: 'POS Billing', perm: 'create_bills' },
   { route: '/medicines',  icon: '💊',  label: 'Medicines',   perm: 'manage_medicines' },
   { route: '/inventory',  icon: '📦',  label: 'Inventory',   perm: 'manage_inventory', altPerm: 'view_inventory' },
+  { route: '/old-stock',  icon: '🏛️',  label: 'Opening Stock', perm: 'manage_old_stock' },
   { route: '/customers',  icon: '👤',  label: 'Customers',   perm: 'manage_customers' },
   { route: '/doctors',    icon: '🩺',  label: 'Doctors',     always: true },
   { route: '/suppliers',  icon: '🚚',  label: 'Suppliers',   perm: 'manage_suppliers' },

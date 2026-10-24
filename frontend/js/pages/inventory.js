@@ -100,7 +100,12 @@ export default function renderInventory(container) {
           label: 'Medicine',
           render: (val, row) => `<strong>${val || row.itemName || '—'}</strong><br><small style="color:var(--text-muted)">${row.genericName || ''}</small>`
         },
-        { key: 'batchNumber', label: 'Batch #', render: (val) => `<code style="color:var(--accent);font-weight:700">${val}</code>` },
+        { key: 'batchNumber', label: 'Batch #', render: (val, row) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            <code style="color:var(--accent);font-weight:700">${val}</code>
+            ${row.isOldStock ? '<span class="badge badge-info" style="font-size:0.65rem;padding:2px 5px" title="Legacy Opening Stock">🏛️ Old Stock</span>' : ''}
+          </div>`
+        },
         { key: 'expiryDate', label: 'Expiry Date', render: (val) => {
           const exp = new Date(val);
           const now = new Date();
@@ -185,7 +190,12 @@ export default function renderInventory(container) {
           label: 'Medicine',
           render: (val, row) => `<strong>${val || row.itemName || '—'}</strong><br><small style="color:var(--text-muted)">${row.genericName || ''}</small>`
         },
-        { key: 'batchNumber', label: 'Batch #', render: (val) => `<code style="color:var(--accent)">${val}</code>` },
+        { key: 'batchNumber', label: 'Batch #', render: (val, row) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            <code style="color:var(--accent)">${val}</code>
+            ${row.isOldStock ? '<span class="badge badge-info" style="font-size:0.65rem;padding:2px 5px" title="Legacy Opening Stock">🏛️ Old Stock</span>' : ''}
+          </div>`
+        },
         { key: 'expiryDate', label: 'Expiry Date', render: (val) => `<span style="color:var(--warning);font-weight:700">${formatDate(val)}</span>` },
         { key: 'quantity', label: 'Current Qty', render: (val) => `<strong>${val}</strong>` },
         { key: 'mrp', label: 'MRP', render: (val) => formatCurrency(val) },
@@ -227,7 +237,12 @@ export default function renderInventory(container) {
           label: 'Medicine',
           render: (val, row) => `<strong>${val || row.itemName || '—'}</strong><br><small style="color:var(--text-muted)">${row.genericName || ''}</small>`
         },
-        { key: 'batchNumber', label: 'Batch #', render: (val) => `<code style="color:var(--danger)">${val}</code>` },
+        { key: 'batchNumber', label: 'Batch #', render: (val, row) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            <code style="color:var(--danger)">${val}</code>
+            ${row.isOldStock ? '<span class="badge badge-info" style="font-size:0.65rem;padding:2px 5px" title="Legacy Opening Stock">🏛️ Old Stock</span>' : ''}
+          </div>`
+        },
         { key: 'expiryDate', label: 'Expired On', render: (val) => `<span style="color:var(--danger);font-weight:700">${formatDate(val)}</span>` },
         { key: 'quantity', label: 'Unsold Qty', render: (val) => `<strong style="color:var(--danger)">${val}</strong>` },
         { key: 'mrp', label: 'MRP', render: (val) => formatCurrency(val) },

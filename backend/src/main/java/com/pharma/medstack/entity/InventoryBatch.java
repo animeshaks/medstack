@@ -54,4 +54,15 @@ public class InventoryBatch extends AuditableEntity {
     @Column(name = "is_retired", nullable = false)
     @Builder.Default
     private boolean isRetired = false;
+
+    @Column(name = "is_old_stock", nullable = false)
+    @Builder.Default
+    private boolean isOldStock = false;
+
+    @Column(name = "stock_source", nullable = false)
+    @Builder.Default
+    private String stockSource = "PURCHASE";
+
+    @Column(name = "stock_notes")
+    private String stockNotes;
 }

@@ -103,7 +103,10 @@ public class InventoryService {
                 totalUnits,
                 batch.isRetired(),
                 batch.getMedicine().getMinStockAlertLevel(),
-                lowStock
+                lowStock,
+                batch.isOldStock(),
+                batch.getStockSource(),
+                batch.getStockNotes()
         );
     }
 }

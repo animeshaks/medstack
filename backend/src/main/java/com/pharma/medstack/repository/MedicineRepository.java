@@ -22,4 +22,6 @@ public interface MedicineRepository extends JpaRepository<Medicine, UUID>, JpaSp
     Page<Medicine> search(@Param("search") String search, Pageable pageable);
 
     Optional<Medicine> findByIdAndIsDeletedFalse(UUID id);
+
+    Optional<Medicine> findByNameIgnoreCaseAndIsDeletedFalse(String name);
 }

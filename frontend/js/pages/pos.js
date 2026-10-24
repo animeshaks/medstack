@@ -374,6 +374,8 @@ async function selectMedicine(med) {
   const unitsPerPack = Number(med.unitsPerPack) > 0 ? Number(med.unitsPerPack) : 1;
   const isTablet = (unitsPerPack > 1 || med.category === 'TABLET' || med.category === 'CAPSULE');
 
+  let isOldStock = false;
+
   try {
     const batchResp = await api.get(`/inventory/medicine/${med.id}`);
     const batches = Array.isArray(batchResp?.data) ? batchResp.data : [];
@@ -381,6 +383,7 @@ async function selectMedicine(med) {
       const b = batches[0]; // Earliest expiry batch (FIFO)
       packPrice = Number(b.sellingPrice) || Number(b.mrp) || 0;
       batchNo = b.batchNumber || '—';
+      isOldStock = Boolean(b.isOldStock);
       batches.forEach(item => {
         availablePacks += (item.quantity || 0);
         availableLoose += (item.looseQuantity || 0);
@@ -406,6 +409,7 @@ async function selectMedicine(med) {
     category: med.category,
     requiresPrescription: !!med.requiresPrescription,
     batchNumber: batchNo,
+    isOldStock: isOldStock,
     unitsPerPack: unitsPerPack,
     isTablet: isTablet,
     dispenseUnit: defaultDispenseUnit,
@@ -470,7 +474,7 @@ function renderCart() {
               ${item.requiresPrescription ? '<span class="badge badge-warning" style="font-size:0.6rem">Rx</span>' : ''}
             </div>
             <div style="font-size:0.75rem;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:8px;margin-top:3px">
-              <span>Batch: <code style="color:var(--accent)">${item.batchNumber}</code></span>
+              <span>Batch: <code style="color:var(--accent)">${item.batchNumber}</code>${item.isOldStock ? ' <span class="badge badge-info" style="font-size:0.6rem;padding:1px 5px" title="Legacy Opening Stock">🏛️ Old Stock</span>' : ''}</span>
               <span>Rate (Taxable): <strong style="color:var(--text-primary)">₹${taxableUnitPrice.toFixed(2)}</strong>/${isTab ? 'tab' : 'unit'} <span style="color:var(--text-muted);font-size:0.7rem">(MRP ₹${grossUnitPrice.toFixed(2)})</span></span>
               <span class="badge ${gstRate === 0 ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;font-weight:700">GST ${gstRate}% (+₹${lineTax.toFixed(2)})</span>
               <span class="badge ${item.availableTotalUnits > 0 ? 'badge-success' : 'badge-danger'}" style="font-size:0.65rem">

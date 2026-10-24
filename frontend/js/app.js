@@ -23,6 +23,8 @@ import renderUsers from './pages/users.js';
 import renderSettings from './pages/settings.js';
 import renderCustomerDetail from './pages/customerDetail.js';
 import renderSupplierDetail from './pages/supplierDetail.js';
+import renderOldStock from './pages/oldStock.js';
+import { can } from './permissions.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 if (!isAuthenticated()) {
@@ -177,6 +179,14 @@ registerRoute('/dashboard',        () => loadPage(renderDashboard,        'Dashb
 registerRoute('/pos',              () => loadPage(renderPOS,              'Point of Sale'));
 registerRoute('/medicines',        () => loadPage(renderMedicines,        'Medicines'));
 registerRoute('/inventory',        () => loadPage(renderInventory,        'Inventory'));
+registerRoute('/old-stock',        () => {
+  if (!can('manage_old_stock')) {
+    showToast('Access denied: Opening Stock management is restricted to Owner/Admin', 'error');
+    navigate('/dashboard');
+    return;
+  }
+  loadPage(renderOldStock, 'Opening / Old Stock');
+});
 registerRoute('/customers',        () => loadPage(renderCustomers,        'Customers'));
 registerRoute('/customer-detail',  (params) => loadPage((container) => renderCustomerDetail(container, params), 'Customer Profile & Purchases'));
 registerRoute('/doctors',          () => loadPage(renderDoctors,          'Doctors'));
